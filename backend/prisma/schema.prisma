@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/// Livre, reservado, ocupado, limpeza, manutenção
+enum RoomStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  CLEANING
+  MAINTENANCE
+}
+
+/// Pendente, confirmada, cancelada, concluída
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ChargeType {
+  ROOM
+  MINIBAR
+  RESTAURANT
+  LAUNDRY
+  SERVICE
+  OTHER
+  DISCOUNT
+}
+
+enum PaymentMethod {
+  PIX
+  CARD
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+/// Tipo de quarto (solteiro, casal, família…)
+model RoomType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  capacity    Int
+  basePrice   Decimal  @db.Decimal(10, 2)
+  /// Ex.: ["Wi-Fi", "TV", "Ar-condicionado"]
+  amenities   Json     @default("[]")
+  /// URLs das fotos do tipo
+  photos      Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rooms        Room[]
+  reservations Reservation[]
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  /// Número/identificação do quarto
+  number     String     @unique
+  floor      Int?
+  status     RoomStatus @default(AVAILABLE)
+  roomTypeId String
+  /// Capacidade específica (null = usa a do tipo)
+  capacity   Int?
+  /// Preço por diária específico (null = usa o do tipo)
+  dailyPrice Decimal?   @db.Decimal(10, 2)
+  /// Comodidades extras/específicas do quarto
+  amenities  Json       @default("[]")
+  /// Fotos específicas do quarto
+  photos     Json       @default("[]")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
+  reservations Reservation[]
+
+  @@index([roomTypeId])
+  @@index([status])
+}
+
+model Guest {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String?
+  /// CPF (somente dígitos, único)
+  cpf          String   @unique
+  email        String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?  @db.VarChar(2)
+  zipCode      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([name])
+}
+
+model Reservation {
+  id           String            @id @default(cuid())
+  code         String            @unique
+  guestId      String
+  roomTypeId   String
+  roomId       String?
+  checkInDate  DateTime          @db.Date
+  checkOutDate DateTime          @db.Date
+  /// Quantidade de hóspedes
+  guests       Int               @default(1)
+  status       ReservationStatus @default(PENDING)
+  nightlyRate  Decimal           @db.Decimal(10, 2)
+  notes        String?           @db.Text
+  checkedInAt  DateTime?
+  checkedOutAt DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  guest    Guest         @relation(fields: [guestId], references: [id])
+  roomType RoomType      @relation(fields: [roomTypeId], references: [id])
+  room     Room?         @relation(fields: [roomId], references: [id])
+  charges  FolioCharge[]
+  payments Payment[]
+
+  @@index([guestId])
+  @@index([roomTypeId])
+  @@index([roomId])
+  @@index([status])
+  @@index([checkInDate, checkOutDate])
+}
+
+model FolioCharge {
+  id            String     @id @default(cuid())
+  reservationId String
+  type          ChargeType
+  description   String
+  amount        Decimal    @db.Decimal(10, 2)
+  postedAt      DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+}
+
+/// Zelador da equipe de limpeza
+model Zelador {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([phone])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  reservationId String
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+  cancelledAt   DateTime?
+  refundedAt    DateTime?
+  notes         String?       @db.Text
+  /// Se for estorno, aponta para o pagamento original
+  refundOfId    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  refundOf    Payment?      @relation("PaymentRefunds", fields: [refundOfId], references: [id])
+  refunds     Payment[]     @relation("PaymentRefunds")
+
+  @@index([reservationId])
+  @@index([status])
+  @@index([refundOfId])
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+*.log
+.DS_Store
+backend/src/generated
+front-end/electron/dist
+front-end/electron/release

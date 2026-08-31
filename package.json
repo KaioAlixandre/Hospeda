@@ -1,0 +1,13 @@
+{
+  "name": "hospeda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hospeda — PMS (API + Electron)",
+  "scripts": {
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:app": "npm run dev --prefix front-end/electron",
+    "dev": "npm run dev:backend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "db:studio": "npm run db:studio --prefix backend"
+  }
+}
