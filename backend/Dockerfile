@@ -11,6 +11,9 @@ COPY prisma ./prisma
 COPY prisma.config.ts tsconfig.json ./
 COPY src ./src
 
+# prisma.config.ts exige DATABASE_URL; o generate não conecta ao banco
+ENV DATABASE_URL="mysql://build:build@127.0.0.1:3306/hospeda"
+
 RUN npm run db:generate && npm run build
 
 FROM node:22-alpine AS runner
