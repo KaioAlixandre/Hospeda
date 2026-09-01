@@ -1,0 +1,23 @@
+# API apenas — use quando o MySQL/MariaDB já estiver em outro servidor.
+# Configure DATABASE_HOST com o IP/hostname do banco externo.
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3333}:3333"
+    environment:
+      PORT: 3333
+      DATABASE_HOST: ${DATABASE_HOST:?defina DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT:-3306}
+      DATABASE_USER: ${DATABASE_USER:?defina DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?defina DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME:-hospeda}
+      DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT:-3306}/${DATABASE_NAME:-hospeda}
+      MESSAGING_API_URL: ${MESSAGING_API_URL:-}
+      MESSAGING_INSTANCE_ID: ${MESSAGING_INSTANCE_ID:-}
+      MESSAGING_TOKEN: ${MESSAGING_TOKEN:-}
+      MESSAGING_CLIENT_TOKEN: ${MESSAGING_CLIENT_TOKEN:-}
+      MESSAGING_STYLE: ${MESSAGING_STYLE:-z-api}
+      MESSAGING_PROPERTY_NAME: ${MESSAGING_PROPERTY_NAME:-Hospeda}
