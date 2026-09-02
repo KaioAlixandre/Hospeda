@@ -11,6 +11,7 @@ import { GuestsPage } from "./pages/GuestsPage";
 import { HousekeepingPage } from "./pages/HousekeepingPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { RoomsPage } from "./pages/RoomsPage";
+import { API_BASE_URL } from "./config";
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -49,8 +50,8 @@ export function App() {
         </nav>
 
         <footer className="sidebar-foot">
-          <span>API local</span>
-          <code>localhost:3333</code>
+          <span>API</span>
+          <code>{API_BASE_URL.replace(/^https?:\/\//, "")}</code>
         </footer>
       </aside>
 

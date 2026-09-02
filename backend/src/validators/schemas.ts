@@ -69,8 +69,7 @@ export const updateGuestSchema = createGuestSchema.partial();
 
 export const createReservationSchema = z.object({
   guestId: z.string().min(1),
-  roomTypeId: z.string().min(1),
-  roomId: z.string().min(1).optional(),
+  roomIds: z.array(z.string().min(1)).min(1),
   checkInDate: z.string().date(),
   checkOutDate: z.string().date(),
   guests: z.number().int().positive(),
@@ -82,8 +81,7 @@ export const createReservationSchema = z.object({
 export const availabilityQuerySchema = z.object({
   checkInDate: z.string().date(),
   checkOutDate: z.string().date(),
-  roomTypeId: z.string().optional(),
-  guests: z.coerce.number().int().positive().optional(),
+  guests: z.coerce.number().int().positive(),
 });
 
 export const confirmReservationSchema = z.object({

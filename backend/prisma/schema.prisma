@@ -126,6 +126,8 @@ model Reservation {
   guests       Int               @default(1)
   status       ReservationStatus @default(PENDING)
   nightlyRate  Decimal           @db.Decimal(10, 2)
+  /// Quartos selecionados [{ roomId, roomTypeId, guests, nightlyRate, ... }]
+  roomSelection Json             @default("[]")
   notes        String?           @db.Text
   checkedInAt  DateTime?
   checkedOutAt DateTime?

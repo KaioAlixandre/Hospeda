@@ -116,13 +116,17 @@ export type Reservation = {
   };
   roomType: RoomType;
   room: Room | null;
+  roomSelection: RoomSelectionEntry[];
   guests: number;
   checkInDate: string;
   checkOutDate: string;
   periodLabel: string;
   nights: number;
+  plannedNights: number;
+  billedNights: number;
   nightlyRate: number;
   roomTotal: number;
+  maxRoomTotal: number;
   pricingSummary: string;
   status: ReservationStatus;
   statusLabel: string;
@@ -156,6 +160,15 @@ export type Guest = {
   staysCount: number;
 };
 
+export type RoomSelectionEntry = {
+  roomId: string;
+  roomTypeId: string;
+  guests: number;
+  nightlyRate: number;
+  roomNumber: string;
+  roomTypeName: string;
+};
+
 export type AvailabilityOption = {
   room: Room;
   label: string;
@@ -166,13 +179,29 @@ export type AvailabilityOption = {
   summary: string;
 };
 
+export type AvailabilitySelection = {
+  id: string;
+  kind: "single" | "combination";
+  rooms: AvailabilityOption[];
+  roomIds: string[];
+  label: string;
+  description: string;
+  periodLabel: string;
+  nights: number;
+  guests: number;
+  totalCapacity: number;
+  totalNightlyRate: number;
+  total: number;
+  summary: string;
+};
+
 export type Availability = {
   checkInDate: string;
   checkOutDate: string;
-  guests: number | null;
+  guests: number;
   nights: number;
   availableCount: number;
-  options: AvailabilityOption[];
+  options: AvailabilitySelection[];
 };
 
 export type HousekeepingRoom = {

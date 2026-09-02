@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { presentReservation } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
@@ -18,6 +17,7 @@ import {
   createReservation,
   findAvailableRooms,
   getFolio,
+  listReservations,
 } from "../services/reservations.js";
 
 export const reservationsRouter = Router();
@@ -36,18 +36,10 @@ availabilityRouter.get("/", async (req, res, next) => {
 reservationsRouter.get("/", async (req, res, next) => {
   try {
     const { status } = req.query;
-    const reservations = await prisma.reservation.findMany({
-      where: typeof status === "string" ? { status: status as never } : undefined,
-      include: {
-        guest: true,
-        roomType: true,
-        room: { include: { roomType: true } },
-        charges: true,
-        payments: true,
-      },
-      orderBy: { checkInDate: "asc" },
-    });
-    res.json(reservations.map(presentReservation));
+    const reservations = await listReservations(
+      typeof status === "string" ? status : undefined,
+    );
+    res.json(reservations);
   } catch (err) {
     next(err);
   }

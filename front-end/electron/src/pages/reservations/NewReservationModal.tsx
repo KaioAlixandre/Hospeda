@@ -10,7 +10,7 @@ import {
   Modal,
 } from "../../components/ui";
 import { brl, notificationFeedback, todayISO } from "../../lib/format";
-import type { Availability, Guest, RoomType } from "../../types";
+import type { Availability, Guest } from "../../types";
 
 export function NewReservationModal({
   onClose,
@@ -20,44 +20,46 @@ export function NewReservationModal({
   onCreated: (message: string) => Promise<void>;
 }) {
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [types, setTypes] = useState<RoomType[]>([]);
   const [guestId, setGuestId] = useState("");
-  const [roomTypeId, setRoomTypeId] = useState("");
   const [checkInDate, setCheckInDate] = useState(todayISO());
   const [checkOutDate, setCheckOutDate] = useState(todayISO(1));
   const [guestCount, setGuestCount] = useState("2");
   const [notes, setNotes] = useState("");
   const [availability, setAvailability] = useState<Availability | null>(null);
-  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [selectedOptionId, setSelectedOptionId] = useState("");
   const [confirmNow, setConfirmNow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.guests.list(), api.roomTypes.list()])
-      .then(([guestList, typeList]) => {
+    api.guests
+      .list()
+      .then((guestList) => {
         setGuests(guestList);
-        setTypes(typeList);
         setGuestId(guestList[0]?.id ?? "");
-        setRoomTypeId(typeList[0]?.id ?? "");
       })
       .catch((err: Error) => setError(err.message));
   }, []);
 
   async function search() {
+    const guestsNumber = Number(guestCount);
+    if (!guestsNumber || guestsNumber < 1) {
+      setError("Informe a quantidade de hóspedes.");
+      return;
+    }
+
     setSearching(true);
     setError(null);
-    setSelectedRoomId("");
+    setSelectedOptionId("");
     try {
       const result = await api.availability({
         checkInDate,
         checkOutDate,
-        roomTypeId: roomTypeId || undefined,
-        guests: Number(guestCount) || undefined,
+        guests: guestsNumber,
       });
       setAvailability(result);
-      setSelectedRoomId(result.options[0]?.room.id ?? "");
+      setSelectedOptionId(result.options[0]?.id ?? "");
     } catch (err) {
       setAvailability(null);
       setError((err as Error).message);
@@ -67,16 +69,25 @@ export function NewReservationModal({
   }
 
   async function submit() {
+    const guestsNumber = Number(guestCount);
+    const selectedOption = availability?.options.find(
+      (option) => option.id === selectedOptionId,
+    );
+
+    if (!selectedOption) {
+      setError("Selecione uma opção de quarto na busca de disponibilidade.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
       const reservation = await api.reservations.create({
         guestId,
-        roomTypeId,
-        roomId: selectedRoomId || undefined,
+        roomIds: selectedOption.roomIds,
         checkInDate,
         checkOutDate,
-        guests: Number(guestCount),
+        guests: guestsNumber,
         notes: notes || undefined,
         status: confirmNow ? "CONFIRMED" : "PENDING",
       });
@@ -90,7 +101,13 @@ export function NewReservationModal({
     }
   }
 
-  const canSubmit = Boolean(guestId && roomTypeId && checkInDate && checkOutDate);
+  const canSubmit = Boolean(
+    guestId &&
+      checkInDate &&
+      checkOutDate &&
+      selectedOptionId &&
+      Number(guestCount) > 0,
+  );
 
   return (
     <Modal wide title="Nova reserva" onClose={onClose}>
@@ -106,18 +123,6 @@ export function NewReservationModal({
             {guests.map((guest) => (
               <option key={guest.id} value={guest.id}>
                 {guest.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Tipo de quarto">
-          <select
-            value={roomTypeId}
-            onChange={(e) => setRoomTypeId(e.target.value)}
-          >
-            {types.map((type) => (
-              <option key={type.id} value={type.id}>
-                {type.name} · {brl(type.dailyPrice)}
               </option>
             ))}
           </select>
@@ -167,38 +172,39 @@ export function NewReservationModal({
         </label>
       </div>
 
-      {searching ? <Loading label="Buscando quartos livres…" /> : null}
+      {searching ? <Loading label="Buscando combinações de quartos…" /> : null}
 
       {availability ? (
         availability.options.length === 0 ? (
-          <EmptyState message="Nenhum quarto disponível para o período informado." />
+          <EmptyState message="Nenhuma combinação de quartos disponível para o período informado." />
         ) : (
           <div className="option-list">
             {availability.options.map((option) => (
               <label
-                key={option.room.id}
+                key={option.id}
                 className={
-                  selectedRoomId === option.room.id
+                  selectedOptionId === option.id
                     ? "option-card selected"
                     : "option-card"
                 }
               >
                 <input
                   type="radio"
-                  name="room"
-                  checked={selectedRoomId === option.room.id}
-                  onChange={() => setSelectedRoomId(option.room.id)}
+                  name="room-option"
+                  checked={selectedOptionId === option.id}
+                  onChange={() => setSelectedOptionId(option.id)}
                 />
                 <div>
                   <strong>{option.label}</strong>
+                  <span className="muted block">{option.description}</span>
                   <span className="muted">
-                    {option.periodLabel} · capacidade {option.room.capacity}
+                    {option.periodLabel} · {option.totalCapacity} lugares
                   </span>
                 </div>
                 <div className="option-price">
                   <strong>{brl(option.total)}</strong>
                   <span className="muted">
-                    {option.nights} × {brl(option.nightlyRate)}
+                    até {option.nights} × {brl(option.totalNightlyRate)}
                   </span>
                 </div>
               </label>

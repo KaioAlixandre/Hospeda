@@ -1,6 +1,7 @@
 const { contextBridge } = require("electron");
+const { apiBaseUrl } = require("./config.cjs");
 
 contextBridge.exposeInMainWorld("hospeda", {
-  apiBaseUrl: process.env.HOSPEDA_API_URL || "http://localhost:3333",
+  apiBaseUrl,
   platform: process.platform,
 });

@@ -7,6 +7,8 @@
     "dev:backend": "npm run dev --prefix backend",
     "dev:app": "npm run dev --prefix front-end/electron",
     "dev": "npm run dev:backend",
+    "build:app": "npm run build --prefix front-end/electron",
+    "dist:app": "npm run dist --prefix front-end/electron",
     "db:migrate": "npm run db:migrate --prefix backend",
     "db:studio": "npm run db:studio --prefix backend"
   }

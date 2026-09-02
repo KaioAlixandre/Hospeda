@@ -6,6 +6,7 @@ import type {
   Room,
   RoomType,
 } from "../generated/prisma/client.js";
+import { parseRoomSelection } from "./roomSelection.js";
 
 const ROOM_STATUS_LABEL: Record<string, string> = {
   AVAILABLE: "Disponível",
@@ -63,6 +64,66 @@ function formatDateBR(value: Date | string): string {
 export function nightsBetween(checkIn: Date, checkOut: Date): number {
   const ms = checkOut.getTime() - checkIn.getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+/** Diárias já lançadas na conta (cobranças tipo ROOM). */
+export function billedRoomNightsFromCharges(
+  charges: FolioCharge[],
+  nightlyRate: number,
+): number {
+  const roomTotal = sumByType(charges, (c) => c.type === "ROOM");
+  if (roomTotal <= 0 || nightlyRate <= 0) return 0;
+  return Math.round(roomTotal / nightlyRate);
+}
+
+/** Diárias que devem estar cobradas conforme o andamento da estadia. */
+export function computeBillableRoomNights(
+  reservation: {
+    checkInDate: Date;
+    checkOutDate: Date;
+    checkedInAt: Date | null;
+    checkedOutAt: Date | null;
+  },
+  asOf: Date = new Date(),
+): number {
+  if (!reservation.checkedInAt) return 0;
+
+  const checkIn = startOfUtcDay(reservation.checkInDate);
+  const plannedOut = startOfUtcDay(reservation.checkOutDate);
+  const maxNights = nightsBetween(checkIn, plannedOut);
+
+  if (reservation.checkedOutAt) {
+    const actualOut = startOfUtcDay(reservation.checkedOutAt);
+    return Math.min(maxNights, Math.max(1, nightsBetween(checkIn, actualOut)));
+  }
+
+  const today = startOfUtcDay(asOf);
+  const includeTonight = addUtcDays(today, 1);
+  const nightsSoFar = nightsBetween(checkIn, includeTonight);
+
+  return Math.min(maxNights, Math.max(1, nightsSoFar));
+}
+
+export function roomChargeDescription(nights: number, nightlyRate: number): string {
+  return nights === 1
+    ? `1 diária × R$ ${nightlyRate}`
+    : `${nights} diárias × R$ ${nightlyRate}`;
+}
+
+export function roomChargeAmount(nights: number, nightlyRate: number): number {
+  return Number((nightlyRate * nights).toFixed(2));
 }
 
 type RoomWithType = Room & { roomType: RoomType };
@@ -176,7 +237,7 @@ export function presentAvailabilityOption(
     nights,
     nightlyRate,
     total,
-    summary: `${diariasLabel} × ${formatBRL(nightlyRate)} = ${formatBRL(total)}`,
+    summary: `${diariasLabel} × ${formatBRL(nightlyRate)} = ${formatBRL(total)} (estimativa máxima)`,
   };
 }
 
@@ -186,6 +247,7 @@ type ReservationFull = Reservation & {
   room: (Room & { roomType: RoomType }) | null;
   charges?: FolioCharge[];
   payments?: Payment[];
+  roomSelection?: unknown;
 };
 
 const CONSUMPTION_TYPES = new Set(["MINIBAR", "RESTAURANT"]);
@@ -284,22 +346,47 @@ function sumByType(
 }
 
 export function presentReservation(reservation: ReservationFull) {
-  const nights = nightsBetween(reservation.checkInDate, reservation.checkOutDate);
+  const plannedNights = nightsBetween(
+    reservation.checkInDate,
+    reservation.checkOutDate,
+  );
   const nightlyRate = Number(reservation.nightlyRate);
-  const roomTotal = Number((nightlyRate * nights).toFixed(2));
-  const diariasLabel = nights === 1 ? "1 diária" : `${nights} diárias`;
+  const maxRoomTotal = roomChargeAmount(plannedNights, nightlyRate);
   const bill = buildBill(reservation);
+  const billedNights = billedRoomNightsFromCharges(
+    reservation.charges ?? [],
+    nightlyRate,
+  );
+  const roomTotal = bill.roomNights;
+  const diariasLabel =
+    billedNights > 0
+      ? billedNights === 1
+        ? "1 diária"
+        : `${billedNights} diárias`
+      : plannedNights === 1
+        ? "1 diária"
+        : `${plannedNights} diárias`;
+  const pricingSummary =
+    billedNights > 0
+      ? `${diariasLabel} × ${formatBRL(nightlyRate)} = ${formatBRL(roomTotal)}`
+      : `até ${plannedNights === 1 ? "1 diária" : `${plannedNights} diárias`} × ${formatBRL(nightlyRate)} = ${formatBRL(maxRoomTotal)}`;
 
   const charges = reservation.charges ?? [];
   const payments = reservation.payments ?? [];
+  const roomSelection = parseRoomSelection(reservation.roomSelection);
 
   const roomPresented = reservation.room
     ? presentRoom(reservation.room)
     : null;
 
-  const roomLabel = roomPresented
-    ? `Quarto ${roomPresented.number} — ${roomPresented.type.name}`
-    : `Tipo ${reservation.roomType.name}`;
+  const roomLabel =
+    roomSelection.length > 1
+      ? roomSelection
+          .map((entry) => `Quarto ${entry.roomNumber} (${entry.roomTypeName})`)
+          .join(" + ")
+      : roomPresented
+        ? `Quarto ${roomPresented.number} — ${roomPresented.type.name}`
+        : `Tipo ${reservation.roomType.name}`;
 
   return {
     id: reservation.id,
@@ -313,15 +400,19 @@ export function presentReservation(reservation: ReservationFull) {
     },
     roomType: presentRoomType(reservation.roomType),
     room: roomPresented,
+    roomSelection,
     guests: reservation.guests,
     checkInDate: reservation.checkInDate,
     checkOutDate: reservation.checkOutDate,
     periodLabel: `${formatDateBR(reservation.checkInDate)} → ${formatDateBR(reservation.checkOutDate)}`,
-    nights,
+    nights: plannedNights,
+    plannedNights,
+    billedNights,
     nightlyRate,
     roomTotal,
-    pricingSummary: `${diariasLabel} × ${formatBRL(nightlyRate)} = ${formatBRL(roomTotal)}`,
-    label: `${roomLabel}\n${formatDateBR(reservation.checkInDate)} → ${formatDateBR(reservation.checkOutDate)}\n${diariasLabel} × ${formatBRL(nightlyRate)} = ${formatBRL(roomTotal)}`,
+    maxRoomTotal,
+    pricingSummary,
+    label: `${roomLabel}\n${formatDateBR(reservation.checkInDate)} → ${formatDateBR(reservation.checkOutDate)}\n${pricingSummary}`,
     status: reservation.status,
     statusLabel: RESERVATION_STATUS_LABEL[reservation.status] ?? reservation.status,
     notes: reservation.notes,

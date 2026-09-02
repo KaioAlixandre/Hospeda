@@ -9,9 +9,7 @@ import type {
   Room,
   RoomType,
 } from "./types";
-
-export const API_BASE_URL =
-  window.hospeda?.apiBaseUrl ?? "http://localhost:3333";
+import { API_BASE_URL } from "./config";
 
 async function request<T>(
   path: string,
@@ -94,8 +92,7 @@ export const api = {
   availability: (params: {
     checkInDate: string;
     checkOutDate: string;
-    roomTypeId?: string;
-    guests?: number;
+    guests: number;
   }) => get<Availability>(`/availability${query(params)}`),
 
   reservations: {
@@ -104,8 +101,7 @@ export const api = {
     detail: (id: string) => get<Reservation>(`/reservations/${id}`),
     create: (body: {
       guestId: string;
-      roomTypeId: string;
-      roomId?: string;
+      roomIds: string[];
       checkInDate: string;
       checkOutDate: string;
       guests: number;

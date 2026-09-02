@@ -172,6 +172,56 @@ body {
   flex-wrap: wrap;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.filter-tab:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, currentColor 35%, var(--border));
+}
+
+.filter-tab.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: color-mix(in srgb, currentColor 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.filter-tab.tone-green.active {
+  color: var(--green);
+}
+
+.filter-tab.tone-yellow.active {
+  color: var(--yellow);
+}
+
+.filter-tab.tone-blue.active {
+  color: var(--blue);
+}
+
+.filter-tab.tone-red.active {
+  color: var(--red);
+}
+
+.filter-tab.tone-gray.active {
+  color: var(--text);
+}
+
 /* Typography helpers ------------------------------------------------ */
 
 .muted {

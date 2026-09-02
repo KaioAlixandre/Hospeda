@@ -10,16 +10,22 @@ import {
   Panel,
 } from "../components/ui";
 import { brl, dateBR } from "../lib/format";
-import type { Reservation } from "../types";
+import type { Reservation, ReservationStatus } from "../types";
 import { NewReservationModal } from "./reservations/NewReservationModal";
 import { ReservationDetail } from "./reservations/ReservationDetail";
 
-const STATUS_FILTERS = [
-  { value: "", label: "Todas" },
-  { value: "PENDING", label: "Pendentes" },
-  { value: "CONFIRMED", label: "Confirmadas" },
-  { value: "COMPLETED", label: "Concluídas" },
-  { value: "CANCELLED", label: "Canceladas" },
+type StatusFilter = ReservationStatus | "ALL";
+
+const STATUS_FILTERS: Array<{
+  value: StatusFilter;
+  label: string;
+  tone: string;
+}> = [
+  { value: "CONFIRMED", label: "Confirmadas", tone: "green" },
+  { value: "PENDING", label: "Pendentes", tone: "yellow" },
+  { value: "COMPLETED", label: "Concluídas", tone: "blue" },
+  { value: "CANCELLED", label: "Canceladas", tone: "red" },
+  { value: "ALL", label: "Todas", tone: "gray" },
 ];
 
 const STATUS_TONE: Record<string, string> = {
@@ -35,9 +41,17 @@ const BILL_TONE: Record<string, string> = {
   PENDENTE: "red",
 };
 
+const EMPTY_MESSAGES: Record<StatusFilter, string> = {
+  CONFIRMED: "Nenhuma reserva confirmada encontrada.",
+  PENDING: "Nenhuma reserva pendente encontrada.",
+  COMPLETED: "Nenhuma reserva concluída encontrada.",
+  CANCELLED: "Nenhuma reserva cancelada encontrada.",
+  ALL: "Nenhuma reserva encontrada.",
+};
+
 export function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("CONFIRMED");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -47,7 +61,9 @@ export function ReservationsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setReservations(await api.reservations.list(status || undefined));
+      setReservations(
+        await api.reservations.list(status === "ALL" ? undefined : status),
+      );
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -68,13 +84,6 @@ export function ReservationsPage() {
           <h1>Reservas</h1>
         </div>
         <div className="header-actions">
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            {STATUS_FILTERS.map((filter) => (
-              <option key={filter.value} value={filter.value}>
-                {filter.label}
-              </option>
-            ))}
-          </select>
           <Button icon={<RefreshCw size={16} />} onClick={load} loading={loading}>
             Atualizar
           </Button>
@@ -88,13 +97,32 @@ export function ReservationsPage() {
         </div>
       </header>
 
+      <div className="filter-bar" role="tablist" aria-label="Filtrar reservas por status">
+        {STATUS_FILTERS.map((filter) => (
+          <button
+            key={filter.value}
+            type="button"
+            role="tab"
+            aria-selected={status === filter.value}
+            className={
+              status === filter.value
+                ? `filter-tab active tone-${filter.tone}`
+                : `filter-tab tone-${filter.tone}`
+            }
+            onClick={() => setStatus(filter.value)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
       <Feedback error={error} message={message} />
 
       <Panel>
         {loading && reservations.length === 0 ? (
           <Loading />
         ) : reservations.length === 0 ? (
-          <EmptyState message="Nenhuma reserva encontrada." />
+          <EmptyState message={EMPTY_MESSAGES[status]} />
         ) : (
           <table className="table">
             <thead>
@@ -123,14 +151,22 @@ export function ReservationsPage() {
                     {dateBR(reservation.checkInDate)} —{" "}
                     {dateBR(reservation.checkOutDate)}
                     <span className="muted block">
-                      {reservation.nights} diária
-                      {reservation.nights > 1 ? "s" : ""}
+                      {reservation.billedNights > 0
+                        ? `${reservation.billedNights} diária${reservation.billedNights > 1 ? "s" : ""} cobrada${reservation.billedNights > 1 ? "s" : ""}`
+                        : `até ${reservation.plannedNights} diária${reservation.plannedNights > 1 ? "s" : ""}`}
                     </span>
                   </td>
                   <td>
-                    {reservation.room
-                      ? `${reservation.room.number} · ${reservation.roomType.name}`
-                      : reservation.roomType.name}
+                    {reservation.roomSelection.length > 0
+                      ? reservation.roomSelection
+                          .map(
+                            (entry) =>
+                              `${entry.roomNumber} · ${entry.roomTypeName}`,
+                          )
+                          .join(" + ")
+                      : reservation.room
+                        ? `${reservation.room.number} · ${reservation.roomType.name}`
+                        : reservation.roomType.name}
                   </td>
                   <td>{reservation.guests}</td>
                   <td>{brl(reservation.bill.total)}</td>
