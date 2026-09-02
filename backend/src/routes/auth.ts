@@ -29,13 +29,37 @@ const updateHotelSchema = z
     phone: z.string().min(8).optional(),
     password: z.string().min(6).optional(),
     currentPassword: z.string().min(1).optional(),
+    street: z.string().optional().nullable(),
+    number: z.string().optional().nullable(),
+    complement: z.string().optional().nullable(),
+    neighborhood: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    state: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((value) =>
+        value === undefined || value === null
+          ? value
+          : value.trim()
+            ? value.trim().toUpperCase()
+            : null,
+      ),
+    zipCode: z.string().optional().nullable(),
   })
   .refine(
     (data) =>
       data.name !== undefined ||
       data.ownerName !== undefined ||
       data.phone !== undefined ||
-      data.password !== undefined,
+      data.password !== undefined ||
+      data.street !== undefined ||
+      data.number !== undefined ||
+      data.complement !== undefined ||
+      data.neighborhood !== undefined ||
+      data.city !== undefined ||
+      data.state !== undefined ||
+      data.zipCode !== undefined,
     { message: "At least one field must be provided" },
   )
   .refine((data) => !data.password || Boolean(data.currentPassword), {

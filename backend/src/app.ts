@@ -16,6 +16,7 @@ import {
 } from "./routes/reservations.js";
 import { roomTypesRouter } from "./routes/roomTypes.js";
 import { roomsRouter } from "./routes/rooms.js";
+import { uploadsRouter } from "./routes/uploads.js";
 
 export function createApp() {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp() {
 
   app.use(requireAuth);
 
+  app.use("/uploads", uploadsRouter);
   app.use("/room-types", roomTypesRouter);
   app.use("/rooms", roomsRouter);
   app.use("/guests", guestsRouter);

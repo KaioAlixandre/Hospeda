@@ -32,6 +32,13 @@ type AuthContextValue = {
     phone?: string;
     password?: string;
     currentPassword?: string;
+    street?: string | null;
+    number?: string | null;
+    complement?: string | null;
+    neighborhood?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zipCode?: string | null;
   }) => Promise<void>;
   logout: () => void;
 };
@@ -103,6 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone?: string;
       password?: string;
       currentPassword?: string;
+      street?: string | null;
+      number?: string | null;
+      complement?: string | null;
+      neighborhood?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zipCode?: string | null;
     }) => {
       const { hotel: updated } = await api.auth.update(input);
       const token = getStoredToken();

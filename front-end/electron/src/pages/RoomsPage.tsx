@@ -1,4 +1,4 @@
-import { Layers, Plus, Trash2 } from "lucide-react";
+import { Layers, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import {
@@ -23,11 +23,101 @@ const STATUS_OPTIONS = [
   { value: "MAINTENANCE", label: "Manutenção" },
 ];
 
+const MAX_PHOTOS = 8;
+
 function splitList(value: string): string[] {
   return value
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function PhotoPicker({
+  urls,
+  pending,
+  onUrlsChange,
+  onPendingChange,
+  disabled,
+}: {
+  urls: string[];
+  pending: File[];
+  onUrlsChange: (urls: string[]) => void;
+  onPendingChange: (files: File[]) => void;
+  disabled?: boolean;
+}) {
+  const remaining = MAX_PHOTOS - urls.length - pending.length;
+
+  function onPick(files: FileList | null) {
+    if (!files?.length || remaining <= 0) return;
+    const next = [...pending, ...Array.from(files)].slice(
+      0,
+      MAX_PHOTOS - urls.length,
+    );
+    onPendingChange(next);
+  }
+
+  return (
+    <div className="photo-picker">
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        disabled={disabled || remaining <= 0}
+        onChange={(e) => {
+          onPick(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <small>
+        Até {MAX_PHOTOS} fotos · JPG/PNG/WebP · máx. 10MB cada
+        {remaining < MAX_PHOTOS ? ` · ${remaining} restantes` : ""}
+      </small>
+      {(urls.length > 0 || pending.length > 0) && (
+        <div className="photo-grid">
+          {urls.map((url) => (
+            <div key={url} className="photo-thumb">
+              <img src={url} alt="" />
+              <button
+                type="button"
+                className="photo-remove"
+                disabled={disabled}
+                aria-label="Remover foto"
+                onClick={() => onUrlsChange(urls.filter((item) => item !== url))}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          {pending.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="photo-thumb pending">
+              <img src={URL.createObjectURL(file)} alt="" />
+              <button
+                type="button"
+                className="photo-remove"
+                disabled={disabled}
+                aria-label="Remover foto"
+                onClick={() =>
+                  onPendingChange(pending.filter((_, i) => i !== index))
+                }
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function resolvePhotos(
+  existing: string[],
+  pending: File[],
+  folder: "hotel-rooms" | "hotel-room-types",
+): Promise<string[]> {
+  if (pending.length === 0) return existing;
+  const { urls } = await api.uploads.images(pending, folder);
+  return [...existing, ...urls];
 }
 
 export function RoomsPage() {
@@ -37,8 +127,8 @@ export function RoomsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [showRoomForm, setShowRoomForm] = useState(false);
-  const [showTypeForm, setShowTypeForm] = useState(false);
+  const [editingType, setEditingType] = useState<RoomType | null | "new">(null);
+  const [editingRoom, setEditingRoom] = useState<Room | null | "new">(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,11 +151,24 @@ export function RoomsPage() {
     void load();
   }, [load]);
 
-  async function handleDelete(room: Room) {
+  async function handleDeleteRoom(room: Room) {
+    if (!window.confirm(`Excluir o quarto ${room.number}?`)) return;
     setError(null);
     try {
       await api.rooms.remove(room.id);
       setMessage(`Quarto ${room.number} removido.`);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function handleDeleteType(type: RoomType) {
+    if (!window.confirm(`Excluir o tipo "${type.name}"?`)) return;
+    setError(null);
+    try {
+      await api.roomTypes.remove(type.id);
+      setMessage(`Tipo ${type.name} removido.`);
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -90,13 +193,13 @@ export function RoomsPage() {
           <h1>Quartos</h1>
         </div>
         <div className="header-actions">
-          <Button icon={<Layers size={16} />} onClick={() => setShowTypeForm(true)}>
+          <Button icon={<Layers size={16} />} onClick={() => setEditingType("new")}>
             Novo tipo
           </Button>
           <Button
             variant="primary"
             icon={<Plus size={16} />}
-            onClick={() => setShowRoomForm(true)}
+            onClick={() => setEditingRoom("new")}
             disabled={types.length === 0}
           >
             Novo quarto
@@ -129,6 +232,21 @@ export function RoomsPage() {
                     ))}
                   </ul>
                 ) : null}
+                <div className="cell-actions spaced">
+                  <Button
+                    icon={<Pencil size={15} />}
+                    onClick={() => setEditingType(type)}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="danger"
+                    icon={<Trash2 size={15} />}
+                    onClick={() => void handleDeleteType(type)}
+                  >
+                    Excluir
+                  </Button>
+                </div>
               </article>
             ))}
           </div>
@@ -203,13 +321,21 @@ export function RoomsPage() {
                     </div>
                   </td>
                   <td>
-                    <Button
-                      variant="danger"
-                      icon={<Trash2 size={15} />}
-                      onClick={() => handleDelete(room)}
-                    >
-                      Excluir
-                    </Button>
+                    <div className="cell-actions">
+                      <Button
+                        icon={<Pencil size={15} />}
+                        onClick={() => setEditingRoom(room)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="danger"
+                        icon={<Trash2 size={15} />}
+                        onClick={() => void handleDeleteRoom(room)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -218,24 +344,26 @@ export function RoomsPage() {
         )}
       </Panel>
 
-      {showTypeForm ? (
+      {editingType !== null ? (
         <RoomTypeForm
-          onClose={() => setShowTypeForm(false)}
-          onSaved={async () => {
-            setShowTypeForm(false);
-            setMessage("Tipo de quarto cadastrado.");
+          initial={editingType === "new" ? null : editingType}
+          onClose={() => setEditingType(null)}
+          onSaved={async (feedback) => {
+            setEditingType(null);
+            setMessage(feedback);
             await load();
           }}
         />
       ) : null}
 
-      {showRoomForm ? (
+      {editingRoom !== null ? (
         <RoomForm
           types={types}
-          onClose={() => setShowRoomForm(false)}
-          onSaved={async () => {
-            setShowRoomForm(false);
-            setMessage("Quarto cadastrado.");
+          initial={editingRoom === "new" ? null : editingRoom}
+          onClose={() => setEditingRoom(null)}
+          onSaved={async (feedback) => {
+            setEditingRoom(null);
+            setMessage(feedback);
             await load();
           }}
         />
@@ -245,18 +373,25 @@ export function RoomsPage() {
 }
 
 function RoomTypeForm({
+  initial,
   onClose,
   onSaved,
 }: {
+  initial: RoomType | null;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (feedback: string) => Promise<void>;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [capacity, setCapacity] = useState("2");
-  const [basePrice, setBasePrice] = useState("");
-  const [amenities, setAmenities] = useState("");
-  const [photos, setPhotos] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [capacity, setCapacity] = useState(String(initial?.capacity ?? 2));
+  const [basePrice, setBasePrice] = useState(
+    initial ? String(initial.dailyPrice) : "",
+  );
+  const [amenities, setAmenities] = useState(
+    initial?.amenities.join(", ") ?? "",
+  );
+  const [photoUrls, setPhotoUrls] = useState<string[]>(initial?.photos ?? []);
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -264,15 +399,26 @@ function RoomTypeForm({
     setSaving(true);
     setError(null);
     try {
-      await api.roomTypes.create({
+      const photos = await resolvePhotos(
+        photoUrls,
+        pendingPhotos,
+        "hotel-room-types",
+      );
+      const body = {
         name,
         description: description || undefined,
         capacity: Number(capacity),
         basePrice: Number(basePrice),
         amenities: splitList(amenities),
-        photos: splitList(photos),
-      });
-      await onSaved();
+        photos,
+      };
+      if (initial) {
+        await api.roomTypes.update(initial.id, body);
+        await onSaved("Tipo de quarto atualizado.");
+      } else {
+        await api.roomTypes.create(body);
+        await onSaved("Tipo de quarto cadastrado.");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -281,7 +427,10 @@ function RoomTypeForm({
   }
 
   return (
-    <Modal title="Novo tipo de quarto" onClose={onClose}>
+    <Modal
+      title={initial ? "Editar tipo de quarto" : "Novo tipo de quarto"}
+      onClose={onClose}
+    >
       <Feedback error={error} />
       <div className="form-grid">
         <Field label="Nome">
@@ -322,14 +471,27 @@ function RoomTypeForm({
             placeholder="Wi-Fi, TV, Frigobar"
           />
         </Field>
-        <Field label="Fotos (URLs)" hint="Separadas por vírgula">
-          <input value={photos} onChange={(e) => setPhotos(e.target.value)} />
-        </Field>
+        <div className="field form-span">
+          <span>Fotos</span>
+          <PhotoPicker
+            urls={photoUrls}
+            pending={pendingPhotos}
+            onUrlsChange={setPhotoUrls}
+            onPendingChange={setPendingPhotos}
+            disabled={saving}
+          />
+          <small>Hospedadas no Cloudinary</small>
+        </div>
       </div>
       <footer className="modal-foot">
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="primary" loading={saving} onClick={submit}>
-          Cadastrar tipo
+        <Button
+          variant="primary"
+          loading={saving}
+          disabled={!name.trim() || !basePrice}
+          onClick={submit}
+        >
+          {initial ? "Salvar" : "Cadastrar tipo"}
         </Button>
       </footer>
     </Modal>
@@ -338,20 +500,36 @@ function RoomTypeForm({
 
 function RoomForm({
   types,
+  initial,
   onClose,
   onSaved,
 }: {
   types: RoomType[];
+  initial: Room | null;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (feedback: string) => Promise<void>;
 }) {
-  const [number, setNumber] = useState("");
-  const [floor, setFloor] = useState("");
-  const [roomTypeId, setRoomTypeId] = useState(types[0]?.id ?? "");
-  const [capacity, setCapacity] = useState("");
-  const [dailyPrice, setDailyPrice] = useState("");
-  const [amenities, setAmenities] = useState("");
-  const [photos, setPhotos] = useState("");
+  const [number, setNumber] = useState(initial?.number ?? "");
+  const [floor, setFloor] = useState(
+    initial?.floor !== null && initial?.floor !== undefined
+      ? String(initial.floor)
+      : "",
+  );
+  const [roomTypeId, setRoomTypeId] = useState(
+    initial?.type.id ?? types[0]?.id ?? "",
+  );
+  const [capacity, setCapacity] = useState(
+    initial ? String(initial.capacity) : "",
+  );
+  const [dailyPrice, setDailyPrice] = useState(
+    initial ? String(initial.dailyPrice) : "",
+  );
+  const [amenities, setAmenities] = useState(
+    initial?.amenities.join(", ") ?? "",
+  );
+  const [photoUrls, setPhotoUrls] = useState<string[]>(initial?.photos ?? []);
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const [status, setStatus] = useState(initial?.status ?? "AVAILABLE");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -359,16 +537,28 @@ function RoomForm({
     setSaving(true);
     setError(null);
     try {
-      await api.rooms.create({
+      const photos = await resolvePhotos(
+        photoUrls,
+        pendingPhotos,
+        "hotel-rooms",
+      );
+      const body = {
         number,
         floor: floor ? Number(floor) : undefined,
         roomTypeId,
         capacity: capacity ? Number(capacity) : undefined,
         dailyPrice: dailyPrice ? Number(dailyPrice) : undefined,
         amenities: splitList(amenities),
-        photos: splitList(photos),
-      });
-      await onSaved();
+        photos,
+        status,
+      };
+      if (initial) {
+        await api.rooms.update(initial.id, body);
+        await onSaved(`Quarto ${number} atualizado.`);
+      } else {
+        await api.rooms.create(body);
+        await onSaved("Quarto cadastrado.");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -377,7 +567,7 @@ function RoomForm({
   }
 
   return (
-    <Modal title="Novo quarto" onClose={onClose}>
+    <Modal title={initial ? "Editar quarto" : "Novo quarto"} onClose={onClose}>
       <Feedback error={error} />
       <div className="form-grid">
         <Field label="Número">
@@ -423,6 +613,15 @@ function RoomForm({
             onChange={(e) => setDailyPrice(e.target.value)}
           />
         </Field>
+        <Field label="Status">
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            {STATUS_OPTIONS.filter((o) => o.value).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Comodidades extras" hint="Separadas por vírgula">
           <input
             value={amenities}
@@ -430,14 +629,27 @@ function RoomForm({
             placeholder="Varanda"
           />
         </Field>
-        <Field label="Fotos (URLs)" hint="Separadas por vírgula">
-          <input value={photos} onChange={(e) => setPhotos(e.target.value)} />
-        </Field>
+        <div className="field form-span">
+          <span>Fotos</span>
+          <PhotoPicker
+            urls={photoUrls}
+            pending={pendingPhotos}
+            onUrlsChange={setPhotoUrls}
+            onPendingChange={setPendingPhotos}
+            disabled={saving}
+          />
+          <small>Hospedadas no Cloudinary</small>
+        </div>
       </div>
       <footer className="modal-foot">
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="primary" loading={saving} onClick={submit}>
-          Cadastrar quarto
+        <Button
+          variant="primary"
+          loading={saving}
+          disabled={!number.trim() || !roomTypeId}
+          onClick={submit}
+        >
+          {initial ? "Salvar" : "Cadastrar quarto"}
         </Button>
       </footer>
     </Modal>

@@ -4,7 +4,9 @@ import {
   CreditCard,
   LogIn,
   LogOut,
+  Pencil,
   Plus,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -20,6 +22,10 @@ import {
 } from "../../components/ui";
 import { brl, dateBR, dateTimeBR, notificationFeedback } from "../../lib/format";
 import type { Reservation, Room } from "../../types";
+
+function toDateInput(value: string): string {
+  return value.slice(0, 10);
+}
 
 const CHARGE_TYPES = [
   { value: "MINIBAR", label: "Frigobar" },
@@ -81,12 +87,21 @@ export function ReservationDetail({
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentConfirmed, setPaymentConfirmed] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editCheckIn, setEditCheckIn] = useState("");
+  const [editCheckOut, setEditCheckOut] = useState("");
+  const [editGuests, setEditGuests] = useState("");
+  const [editNotes, setEditNotes] = useState("");
 
   const load = useCallback(async () => {
     try {
       const detail = await api.reservations.detail(reservationId);
       setReservation(detail);
       setRoomId(detail.room?.id ?? "");
+      setEditCheckIn(toDateInput(detail.checkInDate));
+      setEditCheckOut(toDateInput(detail.checkOutDate));
+      setEditGuests(String(detail.guests));
+      setEditNotes(detail.notes ?? "");
       setPaymentAmount(
         detail.bill.balance > 0 ? String(detail.bill.balance) : "",
       );
@@ -134,6 +149,13 @@ export function ReservationDetail({
   const hasAssignedRooms = reservation.roomSelection.length > 0;
   const assignedRoomLabel =
     reservation.roomSelection.length > 1 ? "Quartos atribuídos" : "Quarto atribuído";
+
+  const canEdit =
+    (isPending || isConfirmed) && !reservation.checkedOutAt;
+  const canDelete =
+    reservation.status === "CANCELLED" ||
+    reservation.status === "COMPLETED" ||
+    (isPending && !reservation.checkedInAt);
 
   return (
     <Modal
@@ -185,6 +207,16 @@ export function ReservationDetail({
       </div>
 
       <div className="action-bar">
+        {canEdit ? (
+          <Button
+            icon={<Pencil size={15} />}
+            loading={busy}
+            onClick={() => setEditing((value) => !value)}
+          >
+            {editing ? "Fechar edição" : "Editar"}
+          </Button>
+        ) : null}
+
         {isPending ? (
           <Button
             variant="primary"
@@ -253,7 +285,86 @@ export function ReservationDetail({
             Cancelar reserva
           </Button>
         ) : null}
+
+        {canDelete ? (
+          <Button
+            variant="danger"
+            icon={<Trash2 size={15} />}
+            loading={busy}
+            onClick={() => {
+              if (!window.confirm(`Excluir a reserva ${reservation.code}?`)) {
+                return;
+              }
+              void run(async () => {
+                await api.reservations.remove(reservation.id);
+                await onChanged();
+                onClose();
+              }, "Reserva excluída.");
+            }}
+          >
+            Excluir
+          </Button>
+        ) : null}
       </div>
+
+      {editing && canEdit ? (
+        <div className="form-grid spaced">
+          <Field label="Data de entrada">
+            <input
+              type="date"
+              value={editCheckIn}
+              disabled={Boolean(reservation.checkedInAt)}
+              onChange={(e) => setEditCheckIn(e.target.value)}
+            />
+          </Field>
+          <Field label="Data de saída">
+            <input
+              type="date"
+              value={editCheckOut}
+              disabled={Boolean(reservation.checkedInAt)}
+              onChange={(e) => setEditCheckOut(e.target.value)}
+            />
+          </Field>
+          <Field label="Hóspedes">
+            <input
+              type="number"
+              min={1}
+              value={editGuests}
+              disabled={Boolean(reservation.checkedInAt)}
+              onChange={(e) => setEditGuests(e.target.value)}
+            />
+          </Field>
+          <Field label="Observações">
+            <input
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+            />
+          </Field>
+          <div className="settings-actions">
+            <Button
+              variant="primary"
+              loading={busy}
+              onClick={() =>
+                run(async () => {
+                  await api.reservations.update(reservation.id, {
+                    ...(reservation.checkedInAt
+                      ? {}
+                      : {
+                          checkInDate: editCheckIn,
+                          checkOutDate: editCheckOut,
+                          guests: Number(editGuests),
+                        }),
+                    notes: editNotes || null,
+                  });
+                  setEditing(false);
+                }, "Reserva atualizada.")
+              }
+            >
+              Salvar alterações
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {!reservation.checkedOutAt ? (
         hasAssignedRooms ? (

@@ -765,6 +765,66 @@ select:focus {
   gap: 12px;
 }
 
+.form-span {
+  grid-column: 1 / -1;
+}
+
+.photo-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photo-picker input[type="file"] {
+  font-size: 12px;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.photo-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-thumb.pending {
+  outline: 1px dashed var(--accent);
+}
+
+.photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  cursor: pointer;
+}
+
+.photo-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .field {
   display: flex;
   flex-direction: column;

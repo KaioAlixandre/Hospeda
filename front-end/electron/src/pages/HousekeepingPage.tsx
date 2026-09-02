@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Pencil,
   Plus,
   RefreshCw,
   SprayCan,
@@ -42,7 +43,9 @@ export function HousekeepingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [showZeladorForm, setShowZeladorForm] = useState(false);
+  const [editingZelador, setEditingZelador] = useState<Zelador | null | "new">(
+    null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +81,7 @@ export function HousekeepingPage() {
   }
 
   async function removeZelador(zelador: Zelador) {
+    if (!window.confirm(`Remover o zelador ${zelador.name}?`)) return;
     setError(null);
     try {
       await api.housekeeping.zeladores.remove(zelador.id);
@@ -129,7 +133,7 @@ export function HousekeepingPage() {
           <Button
             variant="primary"
             icon={<Plus size={16} />}
-            onClick={() => setShowZeladorForm(true)}
+            onClick={() => setEditingZelador("new")}
           >
             Novo zelador
           </Button>
@@ -156,13 +160,21 @@ export function HousekeepingPage() {
                   </td>
                   <td>{zelador.phone}</td>
                   <td>
-                    <Button
-                      variant="danger"
-                      icon={<Trash2 size={15} />}
-                      onClick={() => void removeZelador(zelador)}
-                    >
-                      Remover
-                    </Button>
+                    <div className="cell-actions">
+                      <Button
+                        icon={<Pencil size={15} />}
+                        onClick={() => setEditingZelador(zelador)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="danger"
+                        icon={<Trash2 size={15} />}
+                        onClick={() => void removeZelador(zelador)}
+                      >
+                        Remover
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -179,7 +191,10 @@ export function HousekeepingPage() {
         ) : (
           <div className="board-grid">
             {board.rooms.map((room) => (
-              <article key={room.roomId} className={`board-card tone-${room.statusColor}`}>
+              <article
+                key={room.roomId}
+                className={`board-card tone-${room.statusColor}`}
+              >
                 <header>
                   <strong>{room.number}</strong>
                   <Badge tone={room.statusColor} icon={room.statusIcon}>
@@ -202,10 +217,9 @@ export function HousekeepingPage() {
                         )
                       }
                     >
-                      Limpeza pronta
+                      Pronto
                     </Button>
                   ) : null}
-
                   {["AVAILABLE", "OCCUPIED"].includes(room.status) ? (
                     <Button
                       icon={<SprayCan size={15} />}
@@ -216,21 +230,21 @@ export function HousekeepingPage() {
                         )
                       }
                     >
-                      Iniciar limpeza
+                      Limpeza
                     </Button>
                   ) : null}
-
                   {room.status === "MAINTENANCE" ? (
                     <Button
-                      icon={<CheckCircle2 size={15} />}
+                      variant="primary"
                       onClick={() =>
                         run(
-                          () => api.housekeeping.releaseMaintenance(room.roomId),
+                          () =>
+                            api.housekeeping.releaseMaintenance(room.roomId),
                           `Quarto ${room.number} liberado da manutenção.`,
                         )
                       }
                     >
-                      Liberar manutenção
+                      Liberar
                     </Button>
                   ) : (
                     <Button
@@ -253,12 +267,13 @@ export function HousekeepingPage() {
         )}
       </Panel>
 
-      {showZeladorForm ? (
+      {editingZelador !== null ? (
         <ZeladorForm
-          onClose={() => setShowZeladorForm(false)}
-          onSaved={async () => {
-            setShowZeladorForm(false);
-            setMessage("Zelador cadastrado.");
+          initial={editingZelador === "new" ? null : editingZelador}
+          onClose={() => setEditingZelador(null)}
+          onSaved={async (feedback) => {
+            setEditingZelador(null);
+            setMessage(feedback);
             await load();
           }}
         />
@@ -268,14 +283,16 @@ export function HousekeepingPage() {
 }
 
 function ZeladorForm({
+  initial,
   onClose,
   onSaved,
 }: {
+  initial: Zelador | null;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  onSaved: (feedback: string) => Promise<void>;
 }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -283,8 +300,13 @@ function ZeladorForm({
     setSaving(true);
     setError(null);
     try {
-      await api.housekeeping.zeladores.create({ name, phone });
-      await onSaved();
+      if (initial) {
+        await api.housekeeping.zeladores.update(initial.id, { name, phone });
+        await onSaved("Zelador atualizado.");
+      } else {
+        await api.housekeeping.zeladores.create({ name, phone });
+        await onSaved("Zelador cadastrado.");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -293,7 +315,10 @@ function ZeladorForm({
   }
 
   return (
-    <Modal title="Novo zelador" onClose={onClose}>
+    <Modal
+      title={initial ? "Editar zelador" : "Novo zelador"}
+      onClose={onClose}
+    >
       <Feedback error={error} />
       <div className="form-grid">
         <Field label="Nome">
@@ -315,7 +340,7 @@ function ZeladorForm({
           disabled={!name.trim() || phone.trim().length < 8}
           onClick={submit}
         >
-          Cadastrar
+          {initial ? "Salvar" : "Cadastrar"}
         </Button>
       </footer>
     </Modal>

@@ -2,6 +2,7 @@ import {
   buildBill,
   computeBillableRoomNights,
   nightsBetween,
+  presentAvailabilityOption,
   presentReservation,
   roomChargeAmount,
   roomChargeDescription,
@@ -646,3 +647,173 @@ export async function getFolio(hotelId: string, reservationId: string) {
   }
   return presentReservation(reservation);
 }
+
+export async function updateReservation(
+  hotelId: string,
+  reservationId: string,
+  input: {
+    guestId?: string;
+    roomIds?: string[];
+    checkInDate?: string;
+    checkOutDate?: string;
+    guests?: number;
+    nightlyRate?: number;
+    notes?: string | null;
+  },
+) {
+  const reservation = await loadReservation(hotelId, reservationId);
+
+  if (["CANCELLED", "COMPLETED"].includes(reservation.status)) {
+    throw new AppError(400, `Cannot update reservation with status ${reservation.status}`);
+  }
+
+  const notesOnly =
+    input.notes !== undefined &&
+    input.guestId === undefined &&
+    input.roomIds === undefined &&
+    input.checkInDate === undefined &&
+    input.checkOutDate === undefined &&
+    input.guests === undefined &&
+    input.nightlyRate === undefined;
+
+  if (reservation.checkedInAt && !notesOnly) {
+    throw new AppError(
+      400,
+      "After check-in only notes can be updated; use check-out to finish the stay",
+    );
+  }
+
+  if (notesOnly) {
+    const updated = await prisma.reservation.update({
+      where: { id: reservationId },
+      data: { notes: input.notes },
+      include: {
+        guest: true,
+        roomType: true,
+        room: { include: { roomType: true } },
+        charges: true,
+        payments: true,
+      },
+    });
+    return presentReservation(updated);
+  }
+
+  const checkInDate = input.checkInDate
+    ? input.checkInDate
+    : reservation.checkInDate.toISOString().slice(0, 10);
+  const checkOutDate = input.checkOutDate
+    ? input.checkOutDate
+    : reservation.checkOutDate.toISOString().slice(0, 10);
+  const guests = input.guests ?? reservation.guests;
+  const guestId = input.guestId ?? reservation.guestId;
+  const currentRoomIds = reservationRoomIds(reservation);
+  const roomIds = input.roomIds ?? currentRoomIds;
+
+  if (roomIds.length === 0) {
+    throw new AppError(400, "At least one room is required");
+  }
+
+  const guest = await prisma.guest.findFirst({
+    where: { id: guestId, hotelId },
+  });
+  if (!guest) throw new AppError(404, "Guest not found");
+
+  const checkIn = toDateOnly(checkInDate);
+  const checkOut = toDateOnly(checkOutDate);
+  if (checkOut <= checkIn) {
+    throw new AppError(400, "checkOutDate must be after checkInDate");
+  }
+
+  const blocked = await getBlockedRoomIds(
+    hotelId,
+    checkIn,
+    checkOut,
+    reservationId,
+  );
+  for (const roomId of roomIds) {
+    if (blocked.has(roomId)) {
+      throw new AppError(409, "Selected rooms are not available for these dates");
+    }
+  }
+
+  const rooms = await prisma.room.findMany({
+    where: {
+      hotelId,
+      id: { in: roomIds },
+      status: { in: ["AVAILABLE", "RESERVED", "CLEANING"] },
+    },
+    include: { roomType: true },
+  });
+  if (rooms.length !== roomIds.length) {
+    throw new AppError(409, "One or more selected rooms are unavailable");
+  }
+
+  const options = rooms.map((room) =>
+    presentAvailabilityOption(room, checkInDate, checkOutDate),
+  );
+  const roomSelection = allocateGuests(options, guests);
+  const totalCapacity = options.reduce((sum, o) => sum + o.room.capacity, 0);
+  if (totalCapacity < guests) {
+    throw new AppError(400, "Combined room capacity is insufficient");
+  }
+
+  const nightlyRate =
+    input.nightlyRate ??
+    Number(
+      options.reduce((sum, o) => sum + o.nightlyRate, 0).toFixed(2),
+    );
+  const primary = options[0]!;
+  const previousIds = currentRoomIds;
+  const wasConfirmed = reservation.status === "CONFIRMED";
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (wasConfirmed) {
+      const released = previousIds.filter((id) => !roomIds.includes(id));
+      if (released.length > 0) {
+        await setRoomsStatus(released, "AVAILABLE", tx);
+      }
+      await setRoomsStatus(roomIds, "RESERVED", tx);
+    }
+
+    return tx.reservation.update({
+      where: { id: reservationId },
+      data: {
+        guestId,
+        roomTypeId: primary.room.type.id,
+        roomId: primary.room.id,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        guests,
+        nightlyRate,
+        roomSelection,
+        notes: input.notes === undefined ? reservation.notes : input.notes,
+      },
+      include: {
+        guest: true,
+        roomType: true,
+        room: { include: { roomType: true } },
+        charges: true,
+        payments: true,
+      },
+    });
+  });
+
+  return presentReservation(updated);
+}
+
+export async function deleteReservation(hotelId: string, reservationId: string) {
+  const reservation = await loadReservation(hotelId, reservationId);
+
+  if (reservation.checkedInAt && !reservation.checkedOutAt) {
+    throw new AppError(400, "Cannot delete an in-house reservation; use check-out");
+  }
+
+  if (reservation.status === "CONFIRMED" && !reservation.checkedOutAt) {
+    throw new AppError(400, "Cancel the reservation before deleting it");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.reservation.delete({ where: { id: reservationId } });
+  });
+}
+

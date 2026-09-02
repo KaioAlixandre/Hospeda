@@ -18,6 +18,7 @@ export type BulkMessageNotification = {
 
 type ConfirmedStay = {
   code: string;
+  hotelId: string;
   guest: { name: string; phone: string | null };
   roomType: { name: string };
   room: { number: string } | null;
@@ -140,22 +141,26 @@ async function sendTextMessage(
   }
 }
 
-function buildConfirmationMessage(stay: ConfirmedStay): string {
+function buildConfirmationMessage(
+  stay: ConfirmedStay,
+  hotel: { name: string; address: string | null },
+): string {
   const stayLine = stay.room
-    ? `Quarto ${stay.room.number} — ${stay.roomType.name}`
+    ? `🛏️ Quarto ${stay.room.number} — ${stay.roomType.name}`
     : `Acomodação: ${stay.roomType.name}`;
 
   return [
-    `Olá, ${stay.guest.name}!`,
+    `Olá, ${stay.guest.name}! 👋`,
     "",
     `Sua reserva ${stay.code} foi confirmada.`,
     "",
     stayLine,
-    `Período: ${stay.periodLabel}`,
-    stay.pricingSummary,
+    `📅 Período: ${stay.periodLabel}`,
+    `💰 ${stay.pricingSummary}`,
+    ...(hotel.address ? ["", `📍 Endereço: ${hotel.address}`] : []),
     "",
     `Aguardamos você. Qualquer dúvida, responda esta mensagem.`,
-    `— ${propertyName()}`,
+    `— ${hotel.name}`,
   ].join("\n");
 }
 
@@ -165,9 +170,9 @@ function buildCleaningMessage(
 ): string {
   if (rooms.length === 0) {
     return [
-      `Olá, ${zeladorName}!`,
+      `Olá, ${zeladorName}! 👋`,
       "",
-      `Há quartos que precisam de limpeza.`,
+      `🧹 Há quartos que precisam de limpeza.`,
       "",
       `Por favor, verifique assim que possível.`,
       `— ${propertyName()}`,
@@ -180,10 +185,10 @@ function buildCleaningMessage(
       room.floor !== null ? `${room.floor}º andar` : "Andar não informado";
 
     return [
-      `Olá, ${zeladorName}!`,
+      `Olá, ${zeladorName}! 👋`,
       "",
-      `O quarto ${room.number} (${room.roomType.name}) precisa de limpeza.`,
-      floorLine,
+      `🧹 O quarto ${room.number} (${room.roomType.name}) precisa de limpeza.`,
+      `🏢 ${floorLine}`,
       "",
       `Por favor, verifique assim que possível.`,
       `— ${propertyName()}`,
@@ -197,9 +202,9 @@ function buildCleaningMessage(
   });
 
   return [
-    `Olá, ${zeladorName}!`,
+    `Olá, ${zeladorName}! 👋`,
     "",
-    `Os seguintes quartos precisam de limpeza:`,
+    `🧹 Os seguintes quartos precisam de limpeza:`,
     "",
     ...roomLines,
     "",
@@ -220,9 +225,29 @@ export async function notifyReservationConfirmed(
     };
   }
 
+  const hotel = await prisma.hotel.findUnique({ where: { id: stay.hotelId } });
+  const hotelName = hotel?.name ?? propertyName();
+  const address = hotel
+    ? [
+        hotel.street
+          ? `${hotel.street}${hotel.number ? `, ${hotel.number}` : ""}`
+          : null,
+        hotel.complement,
+        hotel.neighborhood,
+        hotel.city && hotel.state
+          ? `${hotel.city}/${hotel.state}`
+          : hotel.city,
+        hotel.zipCode
+          ? hotel.zipCode.replace(/(\d{5})(\d{3})/, "$1-$2")
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" — ") || null
+    : null;
+
   return sendTextMessage(
     phone,
-    buildConfirmationMessage(stay),
+    buildConfirmationMessage(stay, { name: hotelName, address }),
     `reservation ${stay.code}`,
   );
 }

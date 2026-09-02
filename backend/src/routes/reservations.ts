@@ -9,6 +9,7 @@ import {
   confirmReservationSchema,
   createChargeSchema,
   createReservationSchema,
+  updateReservationSchema,
 } from "../validators/schemas.js";
 import {
   cancelReservation,
@@ -16,9 +17,11 @@ import {
   checkOutReservation,
   confirmReservation,
   createReservation,
+  deleteReservation,
   findAvailableRooms,
   getFolio,
   listReservations,
+  updateReservation,
 } from "../services/reservations.js";
 
 export const reservationsRouter = Router();
@@ -74,6 +77,29 @@ reservationsRouter.post("/", async (req, res, next) => {
       hotelId: hotelIdFrom(req),
     });
     res.status(201).json(reservation);
+  } catch (err) {
+    next(err);
+  }
+});
+
+reservationsRouter.patch("/:id", async (req, res, next) => {
+  try {
+    const data = updateReservationSchema.parse(req.body);
+    const reservation = await updateReservation(
+      hotelIdFrom(req),
+      req.params.id!,
+      data,
+    );
+    res.json(reservation);
+  } catch (err) {
+    next(err);
+  }
+});
+
+reservationsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    await deleteReservation(hotelIdFrom(req), req.params.id!);
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

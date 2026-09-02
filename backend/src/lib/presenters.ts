@@ -391,6 +391,7 @@ export function presentReservation(reservation: ReservationFull) {
   return {
     id: reservation.id,
     code: reservation.code,
+    hotelId: reservation.hotelId,
     guest: {
       id: reservation.guest.id,
       name: reservation.guest.name,

@@ -86,3 +86,25 @@ roomTypesRouter.patch("/:id", async (req, res, next) => {
     next(err);
   }
 });
+
+roomTypesRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const hotelId = hotelIdFrom(req);
+    const existing = await prisma.roomType.findFirst({
+      where: { id: req.params.id, hotelId },
+      include: { _count: { select: { rooms: true, reservations: true } } },
+    });
+    if (!existing) throw new AppError(404, "Room type not found");
+    if (existing._count.rooms > 0) {
+      throw new AppError(409, "Cannot delete room type with rooms");
+    }
+    if (existing._count.reservations > 0) {
+      throw new AppError(409, "Cannot delete room type with reservations");
+    }
+
+    await prisma.roomType.delete({ where: { id: existing.id } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});

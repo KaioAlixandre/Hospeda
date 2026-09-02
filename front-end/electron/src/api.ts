@@ -19,6 +19,16 @@ export type AuthHotel = {
   name: string;
   ownerName: string;
   phone: string;
+  address: {
+    street: string | null;
+    number: string | null;
+    complement: string | null;
+    neighborhood: string | null;
+    city: string | null;
+    state: string | null;
+    zipCode: string | null;
+    formatted: string | null;
+  };
 };
 
 export type AuthSession = {
@@ -90,6 +100,33 @@ const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body });
 const del = (path: string) => request<void>(path, { method: "DELETE" });
 
+async function uploadFormData<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getStoredToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (response.status === 401) {
+    clearSession();
+    window.dispatchEvent(new Event("hospeda:unauthorized"));
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.error ?? `Falha na requisição (${response.status})`);
+  }
+
+  return (await response.json()) as T;
+}
+
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -100,6 +137,17 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
+  uploads: {
+    images: (files: File[], folder: "hotel-rooms" | "hotel-room-types") => {
+      const formData = new FormData();
+      for (const file of files) formData.append("images", file);
+      return uploadFormData<{ urls: string[] }>(
+        `/uploads/images?folder=${encodeURIComponent(folder)}`,
+        formData,
+      );
+    },
+  },
+
   auth: {
     register: (body: {
       name: string;
@@ -116,6 +164,13 @@ export const api = {
       phone?: string;
       password?: string;
       currentPassword?: string;
+      street?: string | null;
+      number?: string | null;
+      complement?: string | null;
+      neighborhood?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zipCode?: string | null;
     }) =>
       request<{ hotel: AuthHotel }>("/auth/me", {
         method: "PATCH",
@@ -137,6 +192,7 @@ export const api = {
     }) => post<RoomType>("/room-types", body),
     update: (id: string, body: Record<string, unknown>) =>
       patch<RoomType>(`/room-types/${id}`, body),
+    remove: (id: string) => del(`/room-types/${id}`),
   },
 
   rooms: {
@@ -184,6 +240,19 @@ export const api = {
       notes?: string;
       status?: "PENDING" | "CONFIRMED";
     }) => post<Reservation>("/reservations", body),
+    update: (
+      id: string,
+      body: {
+        guestId?: string;
+        roomIds?: string[];
+        checkInDate?: string;
+        checkOutDate?: string;
+        guests?: number;
+        nightlyRate?: number;
+        notes?: string | null;
+      },
+    ) => patch<Reservation>(`/reservations/${id}`, body),
+    remove: (id: string) => del(`/reservations/${id}`),
     confirm: (id: string, body?: { roomId?: string }) =>
       post<Reservation>(`/reservations/${id}/confirm`, body ?? {}),
     cancel: (id: string) => post<Reservation>(`/reservations/${id}/cancel`, {}),

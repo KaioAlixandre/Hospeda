@@ -78,6 +78,28 @@ export const createReservationSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED"]).optional(),
 });
 
+export const updateReservationSchema = z
+  .object({
+    guestId: z.string().min(1).optional(),
+    roomIds: z.array(z.string().min(1)).min(1).optional(),
+    checkInDate: z.string().date().optional(),
+    checkOutDate: z.string().date().optional(),
+    guests: z.number().int().positive().optional(),
+    nightlyRate: z.number().positive().optional(),
+    notes: z.string().optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      data.guestId !== undefined ||
+      data.roomIds !== undefined ||
+      data.checkInDate !== undefined ||
+      data.checkOutDate !== undefined ||
+      data.guests !== undefined ||
+      data.nightlyRate !== undefined ||
+      data.notes !== undefined,
+    { message: "At least one field must be provided" },
+  );
+
 export const availabilityQuerySchema = z.object({
   checkInDate: z.string().date(),
   checkOutDate: z.string().date(),
