@@ -90,7 +90,7 @@ export function ReservationDetail({
       setPaymentAmount(
         detail.bill.balance > 0 ? String(detail.bill.balance) : "",
       );
-      const available = await api.rooms.list({ roomTypeId: detail.roomType.id });
+      const available = await api.rooms.list();
       setRooms(available);
       setError(null);
     } catch (err) {
@@ -131,6 +131,9 @@ export function ReservationDetail({
   const isConfirmed = reservation.status === "CONFIRMED";
   const isInHouse = isConfirmed && Boolean(reservation.checkedInAt);
   const canCheckIn = (isPending || isConfirmed) && !reservation.checkedInAt;
+  const hasAssignedRooms = reservation.roomSelection.length > 0;
+  const assignedRoomLabel =
+    reservation.roomSelection.length > 1 ? "Quartos atribuídos" : "Quarto atribuído";
 
   return (
     <Modal
@@ -189,7 +192,11 @@ export function ReservationDetail({
             loading={busy}
             onClick={() =>
               run(
-                () => api.reservations.confirm(reservation.id, { roomId: roomId || undefined }),
+                () =>
+                  api.reservations.confirm(
+                    reservation.id,
+                    !hasAssignedRooms && roomId ? { roomId } : undefined,
+                  ),
                 "Reserva confirmada.",
               )
             }
@@ -205,7 +212,11 @@ export function ReservationDetail({
             loading={busy}
             onClick={() =>
               run(
-                () => api.reservations.checkIn(reservation.id, { roomId: roomId || undefined }),
+                () =>
+                  api.reservations.checkIn(
+                    reservation.id,
+                    !hasAssignedRooms && roomId ? { roomId } : undefined,
+                  ),
                 "Check-in registrado. Quarto ocupado.",
               )
             }
@@ -245,16 +256,43 @@ export function ReservationDetail({
       </div>
 
       {!reservation.checkedOutAt ? (
-        <Field label="Quarto atribuído" hint="Usado na confirmação e no check-in">
-          <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-            <option value="">Selecionar quarto…</option>
-            {rooms.map((room) => (
-              <option key={room.id} value={room.id}>
-                {room.number} · {room.statusLabel} · capacidade {room.capacity}
-              </option>
-            ))}
-          </select>
-        </Field>
+        hasAssignedRooms ? (
+          <Field label={assignedRoomLabel}>
+            <ul className="list compact assigned-rooms">
+              {reservation.roomSelection.map((entry) => {
+                const room = rooms.find((item) => item.id === entry.roomId);
+                return (
+                  <li key={entry.roomId}>
+                    <div>
+                      <strong>Quarto {entry.roomNumber}</strong>
+                      <span className="muted block">
+                        {entry.roomTypeName} · {entry.guests} hóspede
+                        {entry.guests > 1 ? "s" : ""}
+                        {room ? ` · capacidade ${room.capacity}` : ""}
+                      </span>
+                    </div>
+                    {room ? (
+                      <Badge tone={room.statusColor} icon={room.statusIcon}>
+                        {room.statusLabel}
+                      </Badge>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </Field>
+        ) : (
+          <Field label="Quarto atribuído" hint="Usado na confirmação e no check-in">
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+              <option value="">Selecionar quarto…</option>
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.number} · {room.statusLabel} · capacidade {room.capacity}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )
       ) : null}
 
       <div className="split">

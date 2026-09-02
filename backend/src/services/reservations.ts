@@ -142,7 +142,7 @@ export async function findAvailableRooms(params: {
 
   const rooms = await prisma.room.findMany({
     where: {
-      status: { in: ["AVAILABLE", "CLEANING"] },
+      status: "AVAILABLE",
       ...(blockedRoomIds.size > 0
         ? { id: { notIn: [...blockedRoomIds] } }
         : {}),
@@ -279,7 +279,7 @@ export async function confirmReservation(
       include: { roomType: true },
     });
     if (!room) throw new AppError(404, "Room not found");
-    if (["OCCUPIED", "MAINTENANCE"].includes(room.status)) {
+    if (["OCCUPIED", "MAINTENANCE", "CLEANING"].includes(room.status)) {
       throw new AppError(409, `Room cannot be reserved (status: ${room.status})`);
     }
 
@@ -423,7 +423,10 @@ export async function checkInReservation(
     if (room!.status === "MAINTENANCE") {
       throw new AppError(409, "Room is under maintenance");
     }
-    if (!["RESERVED", "AVAILABLE", "CLEANING"].includes(room!.status)) {
+    if (room!.status === "CLEANING") {
+      throw new AppError(409, "Room is still being cleaned");
+    }
+    if (!["RESERVED", "AVAILABLE"].includes(room!.status)) {
       throw new AppError(409, `Room cannot be checked in from status ${room!.status}`);
     }
   }
