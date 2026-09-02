@@ -1049,3 +1049,75 @@ select:focus {
   justify-content: flex-end;
   margin-top: 4px;
 }
+
+.whatsapp-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.whatsapp-status {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.whatsapp-status.ok {
+  border-color: color-mix(in srgb, var(--success, #1a7f4b) 35%, var(--border));
+  background: color-mix(in srgb, var(--success, #1a7f4b) 10%, transparent);
+}
+
+.whatsapp-status.pending {
+  border-color: color-mix(in srgb, #b7791f 35%, var(--border));
+  background: color-mix(in srgb, #b7791f 10%, transparent);
+}
+
+.whatsapp-status .muted {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.whatsapp-status .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
+.whatsapp-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.whatsapp-qr-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.whatsapp-qr img {
+  width: 240px;
+  height: 240px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+
+.whatsapp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

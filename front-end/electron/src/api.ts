@@ -305,4 +305,26 @@ export const api = {
       remove: (id: string) => del(`/housekeeping/zeladores/${id}`),
     },
   },
+
+  whatsapp: {
+    status: () => get<WhatsAppStatus>("/whatsapp/status"),
+    setup: () => post<WhatsAppStatus>("/whatsapp/setup", {}),
+    refreshQr: () => post<WhatsAppStatus>("/whatsapp/qrcode/refresh", {}),
+    pollQr: () => get<WhatsAppStatus>("/whatsapp/qrcode"),
+    disconnect: () => post<WhatsAppStatus>("/whatsapp/disconnect", {}),
+    removeInstance: () =>
+      request<WhatsAppStatus>("/whatsapp/instance", { method: "DELETE" }),
+  },
+};
+
+export type WhatsAppStatus = {
+  configured: boolean;
+  instanceId: string | null;
+  status: string;
+  connected: boolean;
+  phoneNumber: string | null;
+  qrCode: string | null;
+  hotelName?: string | null;
+  sendApiBaseUrl?: string;
+  message?: string;
 };

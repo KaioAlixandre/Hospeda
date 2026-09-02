@@ -53,7 +53,7 @@ export function toWhatsAppPhone(raw: string | null | undefined): string | null {
   return digits.startsWith("55") ? digits : `55${digits}`;
 }
 
-function resolveEndpoint(): MessagingEndpoint | null {
+function resolveEnvEndpoint(): MessagingEndpoint | null {
   const base = (env("MESSAGING_API_URL") ?? "http://localhost:3000").replace(
     /\/$/,
     "",
@@ -86,12 +86,61 @@ function resolveEndpoint(): MessagingEndpoint | null {
   return null;
 }
 
+function resolveHotelEndpoint(hotel: {
+  messagingInstanceId: string | null;
+  messagingToken: string | null;
+  messagingClientToken: string | null;
+}): MessagingEndpoint | null {
+  const instanceId = hotel.messagingInstanceId?.trim();
+  const token = hotel.messagingToken?.trim();
+  const clientToken =
+    hotel.messagingClientToken?.trim() || token || undefined;
+  if (!instanceId || !token) return null;
+
+  const base = (
+    env("SEND_API_BASE_URL") ||
+    env("MESSAGING_API_URL") ||
+    "https://api.kaioalixandre.com.br"
+  ).replace(/\/$/, "");
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (clientToken) headers["Client-Token"] = clientToken;
+
+  return {
+    url: `${base}/instances/${instanceId}/token/${token}/send-text`,
+    headers,
+  };
+}
+
+async function resolveEndpoint(
+  hotelId?: string,
+): Promise<MessagingEndpoint | null> {
+  if (hotelId) {
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: hotelId },
+      select: {
+        messagingInstanceId: true,
+        messagingToken: true,
+        messagingClientToken: true,
+      },
+    });
+    if (hotel) {
+      const fromHotel = resolveHotelEndpoint(hotel);
+      if (fromHotel) return fromHotel;
+    }
+  }
+  return resolveEnvEndpoint();
+}
+
 async function sendTextMessage(
   phone: string,
   message: string,
   context: string,
+  hotelId?: string,
 ): Promise<MessageNotification> {
-  const endpoint = resolveEndpoint();
+  const endpoint = await resolveEndpoint(hotelId);
   if (!endpoint) {
     return {
       sent: false,
@@ -167,6 +216,7 @@ function buildConfirmationMessage(
 function buildCleaningMessage(
   zeladorName: string,
   rooms: CleaningRoom[],
+  hotelName: string,
 ): string {
   if (rooms.length === 0) {
     return [
@@ -175,7 +225,7 @@ function buildCleaningMessage(
       `🧹 Há quartos que precisam de limpeza.`,
       "",
       `Por favor, verifique assim que possível.`,
-      `— ${propertyName()}`,
+      `— ${hotelName}`,
     ].join("\n");
   }
 
@@ -191,7 +241,7 @@ function buildCleaningMessage(
       `🏢 ${floorLine}`,
       "",
       `Por favor, verifique assim que possível.`,
-      `— ${propertyName()}`,
+      `— ${hotelName}`,
     ].join("\n");
   }
 
@@ -209,7 +259,7 @@ function buildCleaningMessage(
     ...roomLines,
     "",
     `Por favor, verifique assim que possível.`,
-    `— ${propertyName()}`,
+    `— ${hotelName}`,
   ].join("\n");
 }
 
@@ -249,6 +299,7 @@ export async function notifyReservationConfirmed(
     phone,
     buildConfirmationMessage(stay, { name: hotelName, address }),
     `reservation ${stay.code}`,
+    stay.hotelId,
   );
 }
 
@@ -256,15 +307,22 @@ export async function notifyZeladoresRoomCleaning(
   hotelId: string,
   rooms: CleaningRoom[],
 ): Promise<BulkMessageNotification> {
-  const zeladores = await prisma.zelador.findMany({
-    where: { hotelId },
-    orderBy: { name: "asc" },
-  });
+  const [zeladores, hotel] = await Promise.all([
+    prisma.zelador.findMany({
+      where: { hotelId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.hotel.findUnique({
+      where: { id: hotelId },
+      select: { name: true },
+    }),
+  ]);
 
   if (zeladores.length === 0) {
     return { sent: 0, failed: 0, skipped: 0, total: 0, recipients: [] };
   }
 
+  const hotelName = hotel?.name ?? propertyName();
   const roomLabel = rooms.map((room) => room.number).join(", ") || "unknown";
 
   const recipients = await Promise.all(
@@ -280,8 +338,9 @@ export async function notifyZeladoresRoomCleaning(
 
       return sendTextMessage(
         phone,
-        buildCleaningMessage(zelador.name, rooms),
+        buildCleaningMessage(zelador.name, rooms, hotelName),
         `cleaning rooms ${roomLabel} → ${zelador.name}`,
+        hotelId,
       );
     }),
   );

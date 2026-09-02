@@ -64,6 +64,10 @@ model Hotel {
   city         String?
   state        String?  @db.VarChar(2)
   zipCode      String?
+  /// Credenciais da instância Send-API / WhatsApp
+  messagingInstanceId  String?
+  messagingToken       String?
+  messagingClientToken String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

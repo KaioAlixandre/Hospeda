@@ -17,6 +17,7 @@ import {
 import { roomTypesRouter } from "./routes/roomTypes.js";
 import { roomsRouter } from "./routes/rooms.js";
 import { uploadsRouter } from "./routes/uploads.js";
+import { whatsappRouter } from "./routes/whatsapp.js";
 
 export function createApp() {
   const app = express();
@@ -33,6 +34,7 @@ export function createApp() {
   app.use(requireAuth);
 
   app.use("/uploads", uploadsRouter);
+  app.use("/whatsapp", whatsappRouter);
   app.use("/room-types", roomTypesRouter);
   app.use("/rooms", roomsRouter);
   app.use("/guests", guestsRouter);

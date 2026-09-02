@@ -39,6 +39,10 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      SEND_API_BASE_URL: ${SEND_API_BASE_URL:-https://api.kaioalixandre.com.br}
+      SEND_API_EMAIL: ${SEND_API_EMAIL:-}
+      SEND_API_PASSWORD: ${SEND_API_PASSWORD:-}
+      SEND_API_ACCESS_TOKEN: ${SEND_API_ACCESS_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
