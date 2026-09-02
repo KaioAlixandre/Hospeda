@@ -11,15 +11,68 @@ import type {
 } from "./types";
 import { API_BASE_URL } from "./config";
 
+const TOKEN_KEY = "hospeda_token";
+const HOTEL_KEY = "hospeda_hotel";
+
+export type AuthHotel = {
+  id: string;
+  name: string;
+  ownerName: string;
+  phone: string;
+};
+
+export type AuthSession = {
+  token: string;
+  hotel: AuthHotel;
+};
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredHotel(): AuthHotel | null {
+  const raw = localStorage.getItem(HOTEL_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthHotel;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(session: AuthSession) {
+  localStorage.setItem(TOKEN_KEY, session.token);
+  localStorage.setItem(HOTEL_KEY, JSON.stringify(session.hotel));
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(HOTEL_KEY);
+}
+
 async function request<T>(
   path: string,
-  init?: { method?: string; body?: unknown },
+  init?: { method?: string; body?: unknown; auth?: boolean },
 ): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init?.body) headers["Content-Type"] = "application/json";
+
+  const useAuth = init?.auth !== false;
+  if (useAuth) {
+    const token = getStoredToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: init?.method ?? "GET",
-    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: init?.body ? JSON.stringify(init.body) : undefined,
   });
+
+  if (response.status === 401 && useAuth) {
+    clearSession();
+    window.dispatchEvent(new Event("hospeda:unauthorized"));
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -31,8 +84,8 @@ async function request<T>(
 }
 
 const get = <T>(path: string) => request<T>(path);
-const post = <T>(path: string, body?: unknown) =>
-  request<T>(path, { method: "POST", body });
+const post = <T>(path: string, body?: unknown, auth = true) =>
+  request<T>(path, { method: "POST", body, auth });
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body });
 const del = (path: string) => request<void>(path, { method: "DELETE" });
@@ -47,6 +100,29 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
+  auth: {
+    register: (body: {
+      name: string;
+      ownerName: string;
+      phone: string;
+      password: string;
+    }) => post<AuthSession>("/auth/register", body, false),
+    login: (body: { phone: string; password: string }) =>
+      post<AuthSession>("/auth/login", body, false),
+    me: () => get<{ hotel: AuthHotel }>("/auth/me"),
+    update: (body: {
+      name?: string;
+      ownerName?: string;
+      phone?: string;
+      password?: string;
+      currentPassword?: string;
+    }) =>
+      request<{ hotel: AuthHotel }>("/auth/me", {
+        method: "PATCH",
+        body,
+      }),
+  },
+
   dashboard: (date?: string) => get<Dashboard>(`/dashboard${query({ date })}`),
 
   roomTypes: {

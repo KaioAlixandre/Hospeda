@@ -1,6 +1,8 @@
 import cors from "cors";
 import express from "express";
+import { requireAuth } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { authRouter } from "./routes/auth.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { guestsRouter } from "./routes/guests.js";
 import { housekeepingRouter } from "./routes/housekeeping.js";
@@ -24,6 +26,10 @@ export function createApp() {
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "hospeda-api" });
   });
+
+  app.use("/auth", authRouter);
+
+  app.use(requireAuth);
 
   app.use("/room-types", roomTypesRouter);
   app.use("/rooms", roomsRouter);

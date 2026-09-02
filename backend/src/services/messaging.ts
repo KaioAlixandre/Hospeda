@@ -161,16 +161,47 @@ function buildConfirmationMessage(stay: ConfirmedStay): string {
 
 function buildCleaningMessage(
   zeladorName: string,
-  room: CleaningRoom,
+  rooms: CleaningRoom[],
 ): string {
-  const floorLine =
-    room.floor !== null ? `${room.floor}º andar` : "Andar não informado";
+  if (rooms.length === 0) {
+    return [
+      `Olá, ${zeladorName}!`,
+      "",
+      `Há quartos que precisam de limpeza.`,
+      "",
+      `Por favor, verifique assim que possível.`,
+      `— ${propertyName()}`,
+    ].join("\n");
+  }
+
+  if (rooms.length === 1) {
+    const room = rooms[0]!;
+    const floorLine =
+      room.floor !== null ? `${room.floor}º andar` : "Andar não informado";
+
+    return [
+      `Olá, ${zeladorName}!`,
+      "",
+      `O quarto ${room.number} (${room.roomType.name}) precisa de limpeza.`,
+      floorLine,
+      "",
+      `Por favor, verifique assim que possível.`,
+      `— ${propertyName()}`,
+    ].join("\n");
+  }
+
+  const roomLines = rooms.map((room) => {
+    const floorLine =
+      room.floor !== null ? `${room.floor}º andar` : "Andar não informado";
+    return `• Quarto ${room.number} (${room.roomType.name}) — ${floorLine}`;
+  });
 
   return [
     `Olá, ${zeladorName}!`,
     "",
-    `O quarto ${room.number} (${room.roomType.name}) precisa de limpeza.`,
-    floorLine,
+    `Os seguintes quartos precisam de limpeza:`,
+    "",
+    ...roomLines,
     "",
     `Por favor, verifique assim que possível.`,
     `— ${propertyName()}`,
@@ -197,15 +228,19 @@ export async function notifyReservationConfirmed(
 }
 
 export async function notifyZeladoresRoomCleaning(
-  room: CleaningRoom,
+  hotelId: string,
+  rooms: CleaningRoom[],
 ): Promise<BulkMessageNotification> {
   const zeladores = await prisma.zelador.findMany({
+    where: { hotelId },
     orderBy: { name: "asc" },
   });
 
   if (zeladores.length === 0) {
     return { sent: 0, failed: 0, skipped: 0, total: 0, recipients: [] };
   }
+
+  const roomLabel = rooms.map((room) => room.number).join(", ") || "unknown";
 
   const recipients = await Promise.all(
     zeladores.map(async (zelador) => {
@@ -220,8 +255,8 @@ export async function notifyZeladoresRoomCleaning(
 
       return sendTextMessage(
         phone,
-        buildCleaningMessage(zelador.name, room),
-        `cleaning room ${room.number} → ${zelador.name}`,
+        buildCleaningMessage(zelador.name, rooms),
+        `cleaning rooms ${roomLabel} → ${zelador.name}`,
       );
     }),
   );

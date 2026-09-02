@@ -43,9 +43,9 @@ function reservationCode(): string {
 
 const ACTIVE_STATUSES = ["PENDING", "CONFIRMED"] as const;
 
-async function loadReservation(id: string) {
-  const reservation = await prisma.reservation.findUnique({
-    where: { id },
+async function loadReservation(hotelId: string, id: string) {
+  const reservation = await prisma.reservation.findFirst({
+    where: { id, hotelId },
     include: {
       guest: true,
       roomType: true,
@@ -101,7 +101,7 @@ async function syncRoomCharges(
     }
   });
 
-  return loadReservation(reservation.id);
+  return loadReservation(reservation.hotelId, reservation.id);
 }
 
 async function setRoomsStatus(
@@ -122,6 +122,7 @@ async function setRoomsStatus(
  * quartos individuais ou combinações para a quantidade de hóspedes.
  */
 export async function findAvailableRooms(params: {
+  hotelId: string;
   checkInDate: string;
   checkOutDate: string;
   guests: number;
@@ -138,10 +139,15 @@ export async function findAvailableRooms(params: {
     throw new AppError(400, "Stay must be at least 1 night");
   }
 
-  const blockedRoomIds = await getBlockedRoomIds(checkIn, checkOut);
+  const blockedRoomIds = await getBlockedRoomIds(
+    params.hotelId,
+    checkIn,
+    checkOut,
+  );
 
   const rooms = await prisma.room.findMany({
     where: {
+      hotelId: params.hotelId,
       status: "AVAILABLE",
       ...(blockedRoomIds.size > 0
         ? { id: { notIn: [...blockedRoomIds] } }
@@ -169,6 +175,7 @@ export async function findAvailableRooms(params: {
 }
 
 export async function createReservation(input: {
+  hotelId: string;
   guestId: string;
   roomIds: string[];
   checkInDate: string;
@@ -185,10 +192,13 @@ export async function createReservation(input: {
     throw new AppError(400, "checkOutDate must be after checkInDate");
   }
 
-  const guest = await prisma.guest.findUnique({ where: { id: input.guestId } });
+  const guest = await prisma.guest.findFirst({
+    where: { id: input.guestId, hotelId: input.hotelId },
+  });
   if (!guest) throw new AppError(404, "Guest not found");
 
   const availability = await findAvailableRooms({
+    hotelId: input.hotelId,
     checkInDate: input.checkInDate,
     checkOutDate: input.checkOutDate,
     guests: input.guests,
@@ -217,6 +227,7 @@ export async function createReservation(input: {
 
     return tx.reservation.create({
       data: {
+        hotelId: input.hotelId,
         code: reservationCode(),
         guestId: input.guestId,
         roomTypeId: primaryRoom.room.type.id,
@@ -247,10 +258,11 @@ export async function createReservation(input: {
 }
 
 export async function confirmReservation(
+  hotelId: string,
   reservationId: string,
   input: { roomId?: string } = {},
 ) {
-  const reservation = await loadReservation(reservationId);
+  const reservation = await loadReservation(hotelId, reservationId);
   if (reservation.status !== "PENDING") {
     throw new AppError(400, "Only pending reservations can be confirmed");
   }
@@ -284,6 +296,7 @@ export async function confirmReservation(
     }
 
     const blocked = await getBlockedRoomIds(
+      hotelId,
       reservation.checkInDate,
       reservation.checkOutDate,
       reservationId,
@@ -329,8 +342,8 @@ export async function confirmReservation(
   };
 }
 
-export async function cancelReservation(reservationId: string) {
-  const reservation = await loadReservation(reservationId);
+export async function cancelReservation(hotelId: string, reservationId: string) {
+  const reservation = await loadReservation(hotelId, reservationId);
   if (!ACTIVE_STATUSES.includes(reservation.status as "PENDING" | "CONFIRMED")) {
     throw new AppError(400, `Cannot cancel reservation with status ${reservation.status}`);
   }
@@ -361,10 +374,11 @@ export async function cancelReservation(reservationId: string) {
 }
 
 export async function checkInReservation(
+  hotelId: string,
   reservationId: string,
   input: { roomId?: string; confirm?: boolean } = {},
 ) {
-  let reservation = await loadReservation(reservationId);
+  let reservation = await loadReservation(hotelId, reservationId);
 
   if (reservation.checkedInAt) {
     throw new AppError(400, "Reservation already checked in");
@@ -380,11 +394,11 @@ export async function checkInReservation(
     if (input.confirm === false) {
       throw new AppError(400, "Reservation must be confirmed before check-in");
     }
-    const confirmed = await confirmReservation(reservationId, {
+    const confirmed = await confirmReservation(hotelId, reservationId, {
       roomId: input.roomId ?? reservation.roomId ?? undefined,
     });
     confirmationNotice = confirmed.notification;
-    reservation = await loadReservation(reservationId);
+    reservation = await loadReservation(hotelId, reservationId);
   }
 
   const roomIds = reservationRoomIds(reservation);
@@ -432,6 +446,7 @@ export async function checkInReservation(
   }
 
   const blocked = await getBlockedRoomIds(
+    hotelId,
     reservation.checkInDate,
     reservation.checkOutDate,
     reservationId,
@@ -488,6 +503,7 @@ export async function checkInReservation(
 
 
 export async function checkOutReservation(
+  hotelId: string,
   reservationId: string,
   input: {
     payment?: {
@@ -498,7 +514,7 @@ export async function checkOutReservation(
     };
   } = {},
 ) {
-  const reservation = await loadReservation(reservationId);
+  const reservation = await loadReservation(hotelId, reservationId);
 
   if (reservation.status !== "CONFIRMED" || !reservation.checkedInAt) {
     throw new AppError(400, "Only checked-in confirmed reservations can be checked out");
@@ -518,7 +534,7 @@ export async function checkOutReservation(
         paidAt: new Date(),
       },
     });
-    working = await loadReservation(reservationId);
+    working = await loadReservation(hotelId, reservationId);
   }
 
   const checkoutAt = new Date();
@@ -557,15 +573,25 @@ export async function checkOutReservation(
     });
   });
 
-  const synced = await loadReservation(reservationId);
+  const synced = await loadReservation(hotelId, reservationId);
+
+  const checkoutRoomIds = reservationRoomIds(synced);
+  const cleaningRooms = await prisma.room.findMany({
+    where: { id: { in: checkoutRoomIds }, hotelId },
+    include: { roomType: true },
+    orderBy: { number: "asc" },
+  });
 
   const cleaningNotification =
-    synced.room && roomId
-      ? await notifyZeladoresRoomCleaning({
-          number: synced.room.number,
-          floor: synced.room.floor,
-          roomType: { name: synced.room.roomType.name },
-        })
+    cleaningRooms.length > 0
+      ? await notifyZeladoresRoomCleaning(
+          hotelId,
+          cleaningRooms.map((room) => ({
+            number: room.number,
+            floor: room.floor,
+            roomType: { name: room.roomType.name },
+          })),
+        )
       : undefined;
 
   return {
@@ -585,9 +611,12 @@ export async function checkOutReservation(
 }
 
 
-export async function listReservations(status?: string) {
+export async function listReservations(hotelId: string, status?: string) {
   const reservations = await prisma.reservation.findMany({
-    where: status ? { status: status as never } : undefined,
+    where: {
+      hotelId,
+      ...(status ? { status: status as never } : {}),
+    },
     include: {
       guest: true,
       roomType: true,
@@ -610,8 +639,8 @@ export async function listReservations(status?: string) {
   return prepared.map(presentReservation);
 }
 
-export async function getFolio(reservationId: string) {
-  let reservation = await loadReservation(reservationId);
+export async function getFolio(hotelId: string, reservationId: string) {
+  let reservation = await loadReservation(hotelId, reservationId);
   if (reservation.checkedInAt && !reservation.checkedOutAt) {
     reservation = await syncRoomCharges(reservation);
   }

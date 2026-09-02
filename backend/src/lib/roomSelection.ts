@@ -226,6 +226,7 @@ export function buildRoomSelectionFromIds(
 }
 
 export async function getBlockedRoomIds(
+  hotelId: string,
   checkIn: Date,
   checkOut: Date,
   excludeReservationId?: string,
@@ -233,6 +234,7 @@ export async function getBlockedRoomIds(
   const { prisma } = await import("./prisma.js");
   const overlapping = await prisma.reservation.findMany({
     where: {
+      hotelId,
       ...(excludeReservationId ? { id: { not: excludeReservationId } } : {}),
       status: { in: ["PENDING", "CONFIRMED"] },
       checkInDate: { lt: checkOut },

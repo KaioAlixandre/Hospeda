@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { presentGuest } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
+import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { createGuestSchema, updateGuestSchema } from "../validators/schemas.js";
 
@@ -20,21 +21,25 @@ const guestInclude = {
 
 guestsRouter.get("/", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
     const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const digits = q?.replace(/\D/g, "");
 
     const guests = await prisma.guest.findMany({
-      where: q
-        ? {
-            OR: [
-              { name: { contains: q } },
-              { phone: { contains: q } },
-              ...(digits ? [{ cpf: { contains: digits } }] : []),
-              { email: { contains: q } },
-              { city: { contains: q } },
-            ],
-          }
-        : undefined,
+      where: {
+        hotelId,
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q } },
+                { phone: { contains: q } },
+                ...(digits ? [{ cpf: { contains: digits } }] : []),
+                { email: { contains: q } },
+                { city: { contains: q } },
+              ],
+            }
+          : {}),
+      },
       include: guestInclude,
       orderBy: { name: "asc" },
     });
@@ -46,8 +51,9 @@ guestsRouter.get("/", async (req, res, next) => {
 
 guestsRouter.get("/:id", async (req, res, next) => {
   try {
-    const guest = await prisma.guest.findUnique({
-      where: { id: req.params.id },
+    const hotelId = hotelIdFrom(req);
+    const guest = await prisma.guest.findFirst({
+      where: { id: req.params.id, hotelId },
       include: guestInclude,
     });
     if (!guest) throw new AppError(404, "Guest not found");
@@ -59,8 +65,9 @@ guestsRouter.get("/:id", async (req, res, next) => {
 
 guestsRouter.get("/:id/stays", async (req, res, next) => {
   try {
-    const guest = await prisma.guest.findUnique({
-      where: { id: req.params.id },
+    const hotelId = hotelIdFrom(req);
+    const guest = await prisma.guest.findFirst({
+      where: { id: req.params.id, hotelId },
       include: guestInclude,
     });
     if (!guest) throw new AppError(404, "Guest not found");
@@ -78,9 +85,10 @@ guestsRouter.get("/:id/stays", async (req, res, next) => {
 
 guestsRouter.post("/", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
     const data = createGuestSchema.parse(req.body);
     const guest = await prisma.guest.create({
-      data,
+      data: { ...data, hotelId },
       include: guestInclude,
     });
     res.status(201).json(presentGuest(guest));
@@ -91,9 +99,15 @@ guestsRouter.post("/", async (req, res, next) => {
 
 guestsRouter.patch("/:id", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
+    const existing = await prisma.guest.findFirst({
+      where: { id: req.params.id, hotelId },
+    });
+    if (!existing) throw new AppError(404, "Guest not found");
+
     const data = updateGuestSchema.parse(req.body);
     const guest = await prisma.guest.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data,
       include: guestInclude,
     });

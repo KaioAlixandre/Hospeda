@@ -27,7 +27,7 @@ const stayInclude = {
   room: true,
 } as const;
 
-export async function getAdminDashboard(dateIso?: string) {
+export async function getAdminDashboard(hotelId: string, dateIso?: string) {
   const day = dateIso
     ? new Date(`${dateIso}T00:00:00.000Z`)
     : startOfUtcDay(new Date());
@@ -45,10 +45,12 @@ export async function getAdminDashboard(dateIso?: string) {
   ] = await Promise.all([
     prisma.room.groupBy({
       by: ["status"],
+      where: { hotelId },
       _count: { _all: true },
     }),
     prisma.reservation.findMany({
       where: {
+        hotelId,
         status: { in: ["PENDING", "CONFIRMED"] },
         checkInDate: { lte: day },
         checkOutDate: { gt: day },
@@ -57,17 +59,18 @@ export async function getAdminDashboard(dateIso?: string) {
       orderBy: { checkInDate: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { checkedInAt: { gte: day, lt: nextDay } },
+      where: { hotelId, checkedInAt: { gte: day, lt: nextDay } },
       include: stayInclude,
       orderBy: { checkedInAt: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { checkedOutAt: { gte: day, lt: nextDay } },
+      where: { hotelId, checkedOutAt: { gte: day, lt: nextDay } },
       include: stayInclude,
       orderBy: { checkedOutAt: "asc" },
     }),
     prisma.reservation.findMany({
       where: {
+        hotelId,
         status: "CONFIRMED",
         checkedInAt: { not: null },
         checkedOutAt: null,
@@ -76,6 +79,7 @@ export async function getAdminDashboard(dateIso?: string) {
     }),
     prisma.payment.findMany({
       where: {
+        reservation: { hotelId },
         OR: [
           { status: "CONFIRMED", paidAt: { gte: day, lt: nextDay } },
           { status: "REFUNDED", refundedAt: { gte: day, lt: nextDay } },
@@ -87,6 +91,7 @@ export async function getAdminDashboard(dateIso?: string) {
   const [arrivalsToday, departuresToday] = await Promise.all([
     prisma.reservation.findMany({
       where: {
+        hotelId,
         status: { in: ["PENDING", "CONFIRMED"] },
         checkInDate: day,
         checkedInAt: null,
@@ -96,6 +101,7 @@ export async function getAdminDashboard(dateIso?: string) {
     }),
     prisma.reservation.findMany({
       where: {
+        hotelId,
         status: "CONFIRMED",
         checkOutDate: day,
         checkedInAt: { not: null },

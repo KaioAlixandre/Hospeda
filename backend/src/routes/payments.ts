@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { hotelIdFrom } from "../middleware/auth.js";
 import {
   cancelPaymentSchema,
   createPaymentSchema,
@@ -19,7 +20,10 @@ export const paymentsRouter = Router({ mergeParams: true });
 /** GET /reservations/:reservationId/payments */
 paymentsRouter.get("/", async (req: Request<ReservationParams>, res, next) => {
   try {
-    const result = await listPayments(req.params.reservationId);
+    const result = await listPayments(
+      hotelIdFrom(req),
+      req.params.reservationId,
+    );
     res.json(result);
   } catch (err) {
     next(err);
@@ -31,6 +35,7 @@ paymentsRouter.post("/", async (req: Request<ReservationParams>, res, next) => {
   try {
     const data = createPaymentSchema.parse(req.body);
     const result = await createPayment({
+      hotelId: hotelIdFrom(req),
       reservationId: req.params.reservationId,
       ...data,
     });
@@ -45,7 +50,7 @@ export const paymentActionsRouter = Router();
 
 paymentActionsRouter.post("/:id/confirm", async (req, res, next) => {
   try {
-    const result = await confirmPayment(req.params.id!);
+    const result = await confirmPayment(hotelIdFrom(req), req.params.id!);
     res.json(result);
   } catch (err) {
     next(err);
@@ -55,7 +60,7 @@ paymentActionsRouter.post("/:id/confirm", async (req, res, next) => {
 paymentActionsRouter.post("/:id/cancel", async (req, res, next) => {
   try {
     cancelPaymentSchema.parse(req.body ?? {});
-    const result = await cancelPayment(req.params.id!);
+    const result = await cancelPayment(hotelIdFrom(req), req.params.id!);
     res.json(result);
   } catch (err) {
     next(err);
@@ -65,7 +70,7 @@ paymentActionsRouter.post("/:id/cancel", async (req, res, next) => {
 paymentActionsRouter.post("/:id/refund", async (req, res, next) => {
   try {
     const data = refundPaymentSchema.parse(req.body ?? {});
-    const result = await refundPayment(req.params.id!, data);
+    const result = await refundPayment(hotelIdFrom(req), req.params.id!, data);
     res.json(result);
   } catch (err) {
     next(err);

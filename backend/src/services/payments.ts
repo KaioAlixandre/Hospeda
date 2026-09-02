@@ -2,17 +2,26 @@ import { buildBill, presentPayment } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 
-async function loadReservationForBill(reservationId: string) {
-  const reservation = await prisma.reservation.findUnique({
-    where: { id: reservationId },
+async function loadReservationForBill(hotelId: string, reservationId: string) {
+  const reservation = await prisma.reservation.findFirst({
+    where: { id: reservationId, hotelId },
     include: { charges: true, payments: true },
   });
   if (!reservation) throw new AppError(404, "Reservation not found");
   return reservation;
 }
 
-export async function listPayments(reservationId: string) {
-  const reservation = await loadReservationForBill(reservationId);
+async function loadPaymentForHotel(hotelId: string, paymentId: string) {
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, reservation: { hotelId } },
+    include: { refunds: true },
+  });
+  if (!payment) throw new AppError(404, "Payment not found");
+  return payment;
+}
+
+export async function listPayments(hotelId: string, reservationId: string) {
+  const reservation = await loadReservationForBill(hotelId, reservationId);
   const payments = await prisma.payment.findMany({
     where: { reservationId },
     orderBy: { createdAt: "asc" },
@@ -26,13 +35,17 @@ export async function listPayments(reservationId: string) {
 }
 
 export async function createPayment(input: {
+  hotelId: string;
   reservationId: string;
   method: "PIX" | "CARD" | "CASH";
   amount: number;
   status?: "PENDING" | "CONFIRMED";
   notes?: string;
 }) {
-  const reservation = await loadReservationForBill(input.reservationId);
+  const reservation = await loadReservationForBill(
+    input.hotelId,
+    input.reservationId,
+  );
   if (["CANCELLED", "COMPLETED"].includes(reservation.status)) {
     throw new AppError(400, "Cannot add payments to this reservation");
   }
@@ -58,7 +71,10 @@ export async function createPayment(input: {
     },
   });
 
-  const updated = await loadReservationForBill(input.reservationId);
+  const updated = await loadReservationForBill(
+    input.hotelId,
+    input.reservationId,
+  );
 
   return {
     payment: presentPayment(payment),
@@ -67,18 +83,19 @@ export async function createPayment(input: {
 }
 
 function defaultStatus(method: "PIX" | "CARD" | "CASH"): "PENDING" | "CONFIRMED" {
-  // Dinheiro costuma confirmar na hora; PIX/cartão podem ficar pendentes
   return method === "CASH" ? "CONFIRMED" : "PENDING";
 }
 
-export async function confirmPayment(paymentId: string) {
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!payment) throw new AppError(404, "Payment not found");
+export async function confirmPayment(hotelId: string, paymentId: string) {
+  const payment = await loadPaymentForHotel(hotelId, paymentId);
   if (payment.status !== "PENDING") {
     throw new AppError(400, "Only pending payments can be confirmed");
   }
 
-  const reservation = await loadReservationForBill(payment.reservationId);
+  const reservation = await loadReservationForBill(
+    hotelId,
+    payment.reservationId,
+  );
   const bill = buildBill(reservation);
   if (Number(payment.amount) > bill.balance + 0.001) {
     throw new AppError(
@@ -95,7 +112,10 @@ export async function confirmPayment(paymentId: string) {
     },
   });
 
-  const updatedReservation = await loadReservationForBill(payment.reservationId);
+  const updatedReservation = await loadReservationForBill(
+    hotelId,
+    payment.reservationId,
+  );
 
   return {
     payment: presentPayment(updatedPayment),
@@ -103,9 +123,8 @@ export async function confirmPayment(paymentId: string) {
   };
 }
 
-export async function cancelPayment(paymentId: string) {
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!payment) throw new AppError(404, "Payment not found");
+export async function cancelPayment(hotelId: string, paymentId: string) {
+  const payment = await loadPaymentForHotel(hotelId, paymentId);
   if (payment.status !== "PENDING") {
     throw new AppError(400, "Only pending payments can be cancelled");
   }
@@ -118,7 +137,10 @@ export async function cancelPayment(paymentId: string) {
     },
   });
 
-  const reservation = await loadReservationForBill(payment.reservationId);
+  const reservation = await loadReservationForBill(
+    hotelId,
+    payment.reservationId,
+  );
 
   return {
     payment: presentPayment(updatedPayment),
@@ -127,14 +149,11 @@ export async function cancelPayment(paymentId: string) {
 }
 
 export async function refundPayment(
+  hotelId: string,
   paymentId: string,
   input: { amount?: number; notes?: string } = {},
 ) {
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    include: { refunds: true },
-  });
-  if (!payment) throw new AppError(404, "Payment not found");
+  const payment = await loadPaymentForHotel(hotelId, paymentId);
   if (payment.status !== "CONFIRMED") {
     throw new AppError(400, "Only confirmed payments can be refunded");
   }
@@ -171,7 +190,10 @@ export async function refundPayment(
     },
   });
 
-  const reservation = await loadReservationForBill(payment.reservationId);
+  const reservation = await loadReservationForBill(
+    hotelId,
+    payment.reservationId,
+  );
 
   return {
     payment: presentPayment(payment),

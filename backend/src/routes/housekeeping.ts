@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { hotelIdFrom } from "../middleware/auth.js";
 import {
   getHousekeepingBoard,
   markRoomCleaned,
@@ -27,9 +28,9 @@ const boardQuerySchema = z.object({
 });
 
 /** Zeladores da equipe de limpeza */
-housekeepingRouter.get("/zeladores", async (_req, res, next) => {
+housekeepingRouter.get("/zeladores", async (req, res, next) => {
   try {
-    res.json(await listZeladores());
+    res.json(await listZeladores(hotelIdFrom(req)));
   } catch (err) {
     next(err);
   }
@@ -38,7 +39,7 @@ housekeepingRouter.get("/zeladores", async (_req, res, next) => {
 housekeepingRouter.post("/zeladores", async (req, res, next) => {
   try {
     const data = createZeladorSchema.parse(req.body);
-    const zelador = await createZelador(data);
+    const zelador = await createZelador(hotelIdFrom(req), data);
     res.status(201).json(zelador);
   } catch (err) {
     next(err);
@@ -48,7 +49,7 @@ housekeepingRouter.post("/zeladores", async (req, res, next) => {
 housekeepingRouter.patch("/zeladores/:id", async (req, res, next) => {
   try {
     const data = updateZeladorSchema.parse(req.body);
-    const zelador = await updateZelador(req.params.id!, data);
+    const zelador = await updateZelador(hotelIdFrom(req), req.params.id!, data);
     res.json(zelador);
   } catch (err) {
     next(err);
@@ -57,7 +58,7 @@ housekeepingRouter.patch("/zeladores/:id", async (req, res, next) => {
 
 housekeepingRouter.delete("/zeladores/:id", async (req, res, next) => {
   try {
-    await deleteZelador(req.params.id!);
+    await deleteZelador(hotelIdFrom(req), req.params.id!);
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -68,7 +69,7 @@ housekeepingRouter.delete("/zeladores/:id", async (req, res, next) => {
 housekeepingRouter.get("/", async (req, res, next) => {
   try {
     const query = boardQuerySchema.parse(req.query);
-    const board = await getHousekeepingBoard(query);
+    const board = await getHousekeepingBoard(hotelIdFrom(req), query);
     res.json(board);
   } catch (err) {
     next(err);
@@ -78,7 +79,7 @@ housekeepingRouter.get("/", async (req, res, next) => {
 /** Limpeza concluída → Disponível */
 housekeepingRouter.post("/:roomId/ready", async (req, res, next) => {
   try {
-    const result = await markRoomCleaned(req.params.roomId!);
+    const result = await markRoomCleaned(hotelIdFrom(req), req.params.roomId!);
     res.json(result);
   } catch (err) {
     next(err);
@@ -88,7 +89,7 @@ housekeepingRouter.post("/:roomId/ready", async (req, res, next) => {
 /** Iniciar limpeza */
 housekeepingRouter.post("/:roomId/start-cleaning", async (req, res, next) => {
   try {
-    const result = await startRoomCleaning(req.params.roomId!);
+    const result = await startRoomCleaning(hotelIdFrom(req), req.params.roomId!);
     res.json(result);
   } catch (err) {
     next(err);
@@ -98,7 +99,7 @@ housekeepingRouter.post("/:roomId/start-cleaning", async (req, res, next) => {
 /** Enviar para manutenção */
 housekeepingRouter.post("/:roomId/maintenance", async (req, res, next) => {
   try {
-    const result = await setRoomMaintenance(req.params.roomId!);
+    const result = await setRoomMaintenance(hotelIdFrom(req), req.params.roomId!);
     res.json(result);
   } catch (err) {
     next(err);
@@ -108,7 +109,10 @@ housekeepingRouter.post("/:roomId/maintenance", async (req, res, next) => {
 /** Liberar manutenção */
 housekeepingRouter.post("/:roomId/release-maintenance", async (req, res, next) => {
   try {
-    const result = await releaseRoomMaintenance(req.params.roomId!);
+    const result = await releaseRoomMaintenance(
+      hotelIdFrom(req),
+      req.params.roomId!,
+    );
     res.json(result);
   } catch (err) {
     next(err);

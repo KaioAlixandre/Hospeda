@@ -12,23 +12,32 @@ export function presentZelador(zelador: Zelador) {
   };
 }
 
-export async function listZeladores() {
+export async function listZeladores(hotelId: string) {
   const zeladores = await prisma.zelador.findMany({
+    where: { hotelId },
     orderBy: { name: "asc" },
   });
   return zeladores.map(presentZelador);
 }
 
-export async function createZelador(input: { name: string; phone: string }) {
-  const zelador = await prisma.zelador.create({ data: input });
+export async function createZelador(
+  hotelId: string,
+  input: { name: string; phone: string },
+) {
+  const zelador = await prisma.zelador.create({
+    data: { ...input, hotelId },
+  });
   return presentZelador(zelador);
 }
 
 export async function updateZelador(
+  hotelId: string,
   id: string,
   input: Partial<{ name: string; phone: string }>,
 ) {
-  const existing = await prisma.zelador.findUnique({ where: { id } });
+  const existing = await prisma.zelador.findFirst({
+    where: { id, hotelId },
+  });
   if (!existing) throw new AppError(404, "Zelador not found");
 
   const zelador = await prisma.zelador.update({
@@ -38,8 +47,10 @@ export async function updateZelador(
   return presentZelador(zelador);
 }
 
-export async function deleteZelador(id: string) {
-  const existing = await prisma.zelador.findUnique({ where: { id } });
+export async function deleteZelador(hotelId: string, id: string) {
+  const existing = await prisma.zelador.findFirst({
+    where: { id, hotelId },
+  });
   if (!existing) throw new AppError(404, "Zelador not found");
 
   await prisma.zelador.delete({ where: { id } });

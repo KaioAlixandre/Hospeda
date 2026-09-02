@@ -892,3 +892,100 @@ select:focus {
   color: var(--text);
   font-weight: 600;
 }
+
+/* Auth ------------------------------------------------------------ */
+
+.auth-screen {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background:
+    radial-gradient(ellipse at top, rgba(61, 139, 253, 0.18), transparent 55%),
+    var(--bg);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.auth-card h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.auth-card > .muted {
+  margin: 0;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form .btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.auth-switch {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px;
+  text-align: center;
+}
+
+.auth-switch:hover {
+  text-decoration: underline;
+}
+
+.sidebar-foot .btn {
+  width: 100%;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.settings-form {
+  align-items: end;
+}
+
+.settings-section-title {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+.settings-section-title h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.settings-section-title p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}

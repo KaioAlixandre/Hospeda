@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { presentRoomType } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
+import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
   createRoomTypeSchema,
@@ -9,9 +10,11 @@ import {
 
 export const roomTypesRouter = Router();
 
-roomTypesRouter.get("/", async (_req, res, next) => {
+roomTypesRouter.get("/", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
     const roomTypes = await prisma.roomType.findMany({
+      where: { hotelId },
       orderBy: { name: "asc" },
       include: { _count: { select: { rooms: true } } },
     });
@@ -23,8 +26,9 @@ roomTypesRouter.get("/", async (_req, res, next) => {
 
 roomTypesRouter.get("/:id", async (req, res, next) => {
   try {
-    const roomType = await prisma.roomType.findUnique({
-      where: { id: req.params.id },
+    const hotelId = hotelIdFrom(req);
+    const roomType = await prisma.roomType.findFirst({
+      where: { id: req.params.id, hotelId },
       include: { _count: { select: { rooms: true } } },
     });
     if (!roomType) throw new AppError(404, "Room type not found");
@@ -36,9 +40,11 @@ roomTypesRouter.get("/:id", async (req, res, next) => {
 
 roomTypesRouter.post("/", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
     const data = createRoomTypeSchema.parse(req.body);
     const roomType = await prisma.roomType.create({
       data: {
+        hotelId,
         name: data.name,
         description: data.description,
         capacity: data.capacity,
@@ -56,9 +62,15 @@ roomTypesRouter.post("/", async (req, res, next) => {
 
 roomTypesRouter.patch("/:id", async (req, res, next) => {
   try {
+    const hotelId = hotelIdFrom(req);
+    const existing = await prisma.roomType.findFirst({
+      where: { id: req.params.id, hotelId },
+    });
+    if (!existing) throw new AppError(404, "Room type not found");
+
     const data = updateRoomTypeSchema.parse(req.body);
     const roomType = await prisma.roomType.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),

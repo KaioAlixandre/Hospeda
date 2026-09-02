@@ -47,10 +47,33 @@ enum PaymentStatus {
   REFUNDED
 }
 
+/// Conta do hotel (login do proprietário)
+model Hotel {
+  id           String   @id @default(cuid())
+  /// Nome do estabelecimento
+  name         String
+  /// Nome do proprietário
+  ownerName    String
+  /// Telefone/WhatsApp (login)
+  phone        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roomTypes    RoomType[]
+  rooms        Room[]
+  guests       Guest[]
+  reservations Reservation[]
+  zeladores    Zelador[]
+
+  @@index([name])
+}
+
 /// Tipo de quarto (solteiro, casal, família…)
 model RoomType {
   id          String   @id @default(cuid())
-  name        String   @unique
+  hotelId     String
+  name        String
   description String?  @db.Text
   capacity    Int
   basePrice   Decimal  @db.Decimal(10, 2)
@@ -61,14 +84,19 @@ model RoomType {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   rooms        Room[]
   reservations Reservation[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
 }
 
 model Room {
   id         String     @id @default(cuid())
+  hotelId    String
   /// Número/identificação do quarto
-  number     String     @unique
+  number     String
   floor      Int?
   status     RoomStatus @default(AVAILABLE)
   roomTypeId String
@@ -83,19 +111,23 @@ model Room {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
   reservations Reservation[]
 
+  @@unique([hotelId, number])
+  @@index([hotelId])
   @@index([roomTypeId])
   @@index([status])
 }
 
 model Guest {
   id           String   @id @default(cuid())
+  hotelId      String
   name         String
   phone        String?
-  /// CPF (somente dígitos, único)
-  cpf          String   @unique
+  /// CPF (somente dígitos, único por hotel)
+  cpf          String
   email        String?
   street       String?
   number       String?
@@ -107,8 +139,11 @@ model Guest {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   reservations Reservation[]
 
+  @@unique([hotelId, cpf])
+  @@index([hotelId])
   @@index([email])
   @@index([phone])
   @@index([name])
@@ -116,6 +151,7 @@ model Guest {
 
 model Reservation {
   id           String            @id @default(cuid())
+  hotelId      String
   code         String            @unique
   guestId      String
   roomTypeId   String
@@ -134,12 +170,14 @@ model Reservation {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  hotel    Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   guest    Guest         @relation(fields: [guestId], references: [id])
   roomType RoomType      @relation(fields: [roomTypeId], references: [id])
   room     Room?         @relation(fields: [roomId], references: [id])
   charges  FolioCharge[]
   payments Payment[]
 
+  @@index([hotelId])
   @@index([guestId])
   @@index([roomTypeId])
   @@index([roomId])
@@ -164,11 +202,15 @@ model FolioCharge {
 /// Zelador da equipe de limpeza
 model Zelador {
   id        String   @id @default(cuid())
+  hotelId   String
   name      String
   phone     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
   @@index([name])
   @@index([phone])
 }

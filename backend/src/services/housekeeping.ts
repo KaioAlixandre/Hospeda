@@ -10,9 +10,15 @@ type RoomStatus =
   | "CLEANING"
   | "MAINTENANCE";
 
-export async function getHousekeepingBoard(filter?: { status?: RoomStatus }) {
+export async function getHousekeepingBoard(
+  hotelId: string,
+  filter?: { status?: RoomStatus },
+) {
   const rooms = await prisma.room.findMany({
-    where: filter?.status ? { status: filter.status } : undefined,
+    where: {
+      hotelId,
+      ...(filter?.status ? { status: filter.status } : {}),
+    },
     include: { roomType: true },
     orderBy: [{ floor: "asc" }, { number: "asc" }],
   });
@@ -20,9 +26,9 @@ export async function getHousekeepingBoard(filter?: { status?: RoomStatus }) {
   return presentHousekeepingBoard(rooms);
 }
 
-async function loadRoom(roomId: string) {
-  const room = await prisma.room.findUnique({
-    where: { id: roomId },
+async function loadRoom(hotelId: string, roomId: string) {
+  const room = await prisma.room.findFirst({
+    where: { id: roomId, hotelId },
     include: { roomType: true },
   });
   if (!room) throw new AppError(404, "Room not found");
@@ -30,8 +36,8 @@ async function loadRoom(roomId: string) {
 }
 
 /** Limpeza concluída: Limpeza → Disponível */
-export async function markRoomCleaned(roomId: string) {
-  const room = await loadRoom(roomId);
+export async function markRoomCleaned(hotelId: string, roomId: string) {
+  const room = await loadRoom(hotelId, roomId);
   if (room.status !== "CLEANING") {
     throw new AppError(400, "Only rooms in cleaning status can be marked as ready");
   }
@@ -54,8 +60,8 @@ export async function markRoomCleaned(roomId: string) {
 }
 
 /** Enviar para limpeza (ex.: inspeção) */
-export async function startRoomCleaning(roomId: string) {
-  const room = await loadRoom(roomId);
+export async function startRoomCleaning(hotelId: string, roomId: string) {
+  const room = await loadRoom(hotelId, roomId);
   if (!["AVAILABLE", "OCCUPIED"].includes(room.status)) {
     throw new AppError(
       400,
@@ -70,11 +76,13 @@ export async function startRoomCleaning(roomId: string) {
     include: { roomType: true },
   });
 
-  const notification = await notifyZeladoresRoomCleaning({
-    number: updated.number,
-    floor: updated.floor,
-    roomType: { name: updated.roomType.name },
-  });
+  const notification = await notifyZeladoresRoomCleaning(hotelId, [
+    {
+      number: updated.number,
+      floor: updated.floor,
+      roomType: { name: updated.roomType.name },
+    },
+  ]);
 
   return {
     ...presentHousekeepingRoom(updated),
@@ -88,8 +96,8 @@ export async function startRoomCleaning(roomId: string) {
 }
 
 /** Colocar em manutenção */
-export async function setRoomMaintenance(roomId: string) {
-  const room = await loadRoom(roomId);
+export async function setRoomMaintenance(hotelId: string, roomId: string) {
+  const room = await loadRoom(hotelId, roomId);
   if (["OCCUPIED", "RESERVED"].includes(room.status)) {
     throw new AppError(
       400,
@@ -115,8 +123,8 @@ export async function setRoomMaintenance(roomId: string) {
 }
 
 /** Liberar manutenção → Disponível */
-export async function releaseRoomMaintenance(roomId: string) {
-  const room = await loadRoom(roomId);
+export async function releaseRoomMaintenance(hotelId: string, roomId: string) {
+  const room = await loadRoom(hotelId, roomId);
   if (room.status !== "MAINTENANCE") {
     throw new AppError(400, "Room is not in maintenance");
   }
