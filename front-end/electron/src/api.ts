@@ -219,6 +219,7 @@ export const api = {
     create: (body: Record<string, unknown>) => post<Guest>("/guests", body),
     update: (id: string, body: Record<string, unknown>) =>
       patch<Guest>(`/guests/${id}`, body),
+    remove: (id: string) => del(`/guests/${id}`),
   },
 
   availability: (params: {

@@ -116,3 +116,38 @@ guestsRouter.patch("/:id", async (req, res, next) => {
     next(err);
   }
 });
+
+guestsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const hotelId = hotelIdFrom(req);
+    const guest = await prisma.guest.findFirst({
+      where: { id: req.params.id, hotelId },
+    });
+    if (!guest) throw new AppError(404, "Guest not found");
+
+    const active = await prisma.reservation.count({
+      where: {
+        hotelId,
+        guestId: guest.id,
+        status: { in: ["PENDING", "CONFIRMED"] },
+      },
+    });
+    if (active > 0) {
+      throw new AppError(
+        409,
+        "Não é possível excluir hóspede com reservas ativas (pendentes ou confirmadas).",
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.reservation.deleteMany({
+        where: { hotelId, guestId: guest.id },
+      });
+      await tx.guest.delete({ where: { id: guest.id } });
+    });
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});

@@ -1,4 +1,4 @@
-import { History, Plus, Search } from "lucide-react";
+import { History, Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import {
@@ -45,6 +45,26 @@ export function GuestsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function handleDelete(guest: Guest) {
+    const hasHistory = guest.staysCount > 0;
+    const ok = window.confirm(
+      hasHistory
+        ? `Excluir ${guest.name}? O histórico de hospedagens finalizadas/canceladas também será removido.`
+        : `Excluir o hóspede ${guest.name}?`,
+    );
+    if (!ok) return;
+
+    setError(null);
+    try {
+      await api.guests.remove(guest.id);
+      if (historyGuest?.id === guest.id) setHistoryGuest(null);
+      setMessage(`Hóspede ${guest.name} removido.`);
+      await load(search);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   return (
     <section className="page">
@@ -109,12 +129,21 @@ export function GuestsPage() {
                   <td className="muted">{guest.address.formatted ?? "—"}</td>
                   <td>{guest.staysCount}</td>
                   <td>
-                    <Button
-                      icon={<History size={15} />}
-                      onClick={() => setHistoryGuest(guest)}
-                    >
-                      Histórico
-                    </Button>
+                    <div className="cell-actions">
+                      <Button
+                        icon={<History size={15} />}
+                        onClick={() => setHistoryGuest(guest)}
+                      >
+                        Histórico
+                      </Button>
+                      <Button
+                        variant="danger"
+                        icon={<Trash2 size={15} />}
+                        onClick={() => void handleDelete(guest)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
