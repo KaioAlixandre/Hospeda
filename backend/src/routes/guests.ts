@@ -87,6 +87,15 @@ guestsRouter.post("/", async (req, res, next) => {
   try {
     const hotelId = hotelIdFrom(req);
     const data = createGuestSchema.parse(req.body);
+
+    const duplicate = await prisma.guest.findFirst({
+      where: { hotelId, cpf: data.cpf },
+      select: { id: true },
+    });
+    if (duplicate) {
+      throw new AppError(409, "Já existe um hóspede com este CPF neste hotel.");
+    }
+
     const guest = await prisma.guest.create({
       data: { ...data, hotelId },
       include: guestInclude,
@@ -106,6 +115,16 @@ guestsRouter.patch("/:id", async (req, res, next) => {
     if (!existing) throw new AppError(404, "Guest not found");
 
     const data = updateGuestSchema.parse(req.body);
+    if (data.cpf && data.cpf !== existing.cpf) {
+      const duplicate = await prisma.guest.findFirst({
+        where: { hotelId, cpf: data.cpf, NOT: { id: existing.id } },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new AppError(409, "Já existe um hóspede com este CPF neste hotel.");
+      }
+    }
+
     const guest = await prisma.guest.update({
       where: { id: existing.id },
       data,
