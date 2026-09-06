@@ -1,18 +1,104 @@
 import {
+  Building2,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  KeyRound,
+  MapPin,
+  MessageSquare,
+  Phone,
   QrCode,
   RefreshCw,
   Save,
   Smartphone,
   Trash2,
   Unplug,
+  User,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { api, type WhatsAppStatus } from "../api";
 import { useAuth } from "../auth";
-import { Button, Feedback, Field, Loading, Panel } from "../components/ui";
+import { Button, Feedback, Loading } from "../components/ui";
+
+type SettingsTab = "hotel" | "whatsapp";
+
+const TABS: Array<{
+  id: SettingsTab;
+  label: string;
+  shortLabel: string;
+  icon: ReactNode;
+}> = [
+  {
+    id: "hotel",
+    label: "Dados do hotel",
+    shortLabel: "Hotel",
+    icon: <Building2 size={16} />,
+  },
+  {
+    id: "whatsapp",
+    label: "WhatsApp",
+    shortLabel: "WhatsApp",
+    icon: <MessageSquare size={16} />,
+  },
+];
 
 export function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("hotel");
+
+  return (
+    <section className="page settings-page">
+      <header className="settings-page-header">
+        <h1>Configurações</h1>
+        <p className="muted">
+          Dados do estabelecimento e integração com WhatsApp.
+        </p>
+      </header>
+
+      <div className="settings-shell">
+        <div className="settings-tabs-bar">
+          <nav
+            className="settings-tabs"
+            role="tablist"
+            aria-label="Seções de configurações"
+          >
+            {TABS.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={active ? "active" : undefined}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.icon}
+                  <span className="settings-tab-short">{tab.shortLabel}</span>
+                  <span className="settings-tab-full">{tab.label}</span>
+                  {active ? <span className="settings-tab-indicator" /> : null}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="settings-tab-panel">
+          {activeTab === "hotel" ? <HotelSettingsTab /> : null}
+          {activeTab === "whatsapp" ? <WhatsAppSettings /> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HotelSettingsTab() {
   const { hotel, updateHotel } = useAuth();
   const [name, setName] = useState(hotel?.name ?? "");
   const [ownerName, setOwnerName] = useState(hotel?.ownerName ?? "");
@@ -29,6 +115,8 @@ export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,146 +177,205 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Conta</p>
-          <h1>Configurações</h1>
-        </div>
-      </header>
+    <div role="tabpanel" className="settings-panel-content">
+      <h3 className="settings-panel-title">
+        <Building2 size={16} />
+        Dados do hotel
+      </h3>
 
       <Feedback error={error} message={message} />
 
-      <Panel title="WhatsApp">
-        <WhatsAppSettings />
-      </Panel>
+      <form className="settings-form-stack" onSubmit={submit}>
+        <div className="settings-fields-grid">
+          <label className="settings-field">
+            <span>Nome do hotel</span>
+            <div className="settings-input-wrap">
+              <Building2 size={16} />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                minLength={2}
+                placeholder="Ex.: Pousada Sol"
+              />
+            </div>
+          </label>
 
-      <Panel title="Dados do hotel">
-        <form className="form-grid settings-form" onSubmit={submit}>
-          <Field label="Nome do hotel">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              minLength={2}
-            />
-          </Field>
-          <Field label="Nome do proprietário">
-            <input
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              required
-              minLength={2}
-            />
-          </Field>
-          <Field label="Número (WhatsApp)">
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
-              required
-            />
-          </Field>
+          <label className="settings-field">
+            <span>Nome do proprietário</span>
+            <div className="settings-input-wrap">
+              <User size={16} />
+              <input
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                required
+                minLength={2}
+                placeholder="Seu nome"
+              />
+            </div>
+          </label>
 
-          <div className="settings-section-title">
-            <h3>Endereço</h3>
-            <p className="muted">
-              Usado na mensagem de confirmação enviada ao hóspede.
-            </p>
-          </div>
+          <label className="settings-field">
+            <span>Número (WhatsApp)</span>
+            <div className="settings-input-wrap">
+              <Phone size={16} />
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+                required
+                placeholder="11999999999"
+              />
+            </div>
+          </label>
+        </div>
 
-          <Field label="Rua / avenida">
+        <div className="settings-divider">
+          <h4>
+            <MapPin size={15} />
+            Endereço
+          </h4>
+          <p className="muted">
+            Usado na mensagem de confirmação enviada ao hóspede.
+          </p>
+        </div>
+
+        <div className="settings-fields-grid">
+          <label className="settings-field">
+            <span>Rua / avenida</span>
             <input
               value={street}
               onChange={(e) => setStreet(e.target.value)}
               placeholder="Ex.: Rua das Flores"
             />
-          </Field>
-          <Field label="Número">
+          </label>
+          <label className="settings-field">
+            <span>Número</span>
             <input
               value={number}
               onChange={(e) => setNumber(e.target.value)}
               placeholder="123"
             />
-          </Field>
-          <Field label="Complemento" hint="Opcional">
+          </label>
+          <label className="settings-field">
+            <span>Complemento</span>
             <input
               value={complement}
               onChange={(e) => setComplement(e.target.value)}
               placeholder="Bloco A"
             />
-          </Field>
-          <Field label="Bairro">
+          </label>
+          <label className="settings-field">
+            <span>Bairro</span>
             <input
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
             />
-          </Field>
-          <Field label="Cidade">
+          </label>
+          <label className="settings-field">
+            <span>Cidade</span>
             <input value={city} onChange={(e) => setCity(e.target.value)} />
-          </Field>
-          <Field label="UF">
+          </label>
+          <label className="settings-field">
+            <span>UF</span>
             <input
               value={state}
               onChange={(e) => setState(e.target.value.toUpperCase())}
               maxLength={2}
               placeholder="SP"
             />
-          </Field>
-          <Field label="CEP">
+          </label>
+          <label className="settings-field">
+            <span>CEP</span>
             <input
               value={zipCode}
               onChange={(e) => setZipCode(e.target.value)}
               inputMode="numeric"
               placeholder="00000-000"
             />
-          </Field>
+          </label>
+        </div>
 
-          <div className="settings-section-title">
-            <h3>Alterar senha</h3>
-            <p className="muted">Opcional — deixe em branco para manter a atual.</p>
-          </div>
+        <div className="settings-divider">
+          <h4>
+            <KeyRound size={15} />
+            Alterar senha
+          </h4>
+          <p className="muted">Opcional — deixe em branco para manter a atual.</p>
+        </div>
 
-          <Field label="Senha atual">
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </Field>
-          <Field label="Nova senha">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </Field>
-          <Field label="Confirmar nova senha">
+        <div className="settings-fields-grid settings-fields-3">
+          <label className="settings-field">
+            <span>Senha atual</span>
+            <div className="settings-input-wrap has-toggle">
+              <input
+                type={showCurrent ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                className="settings-eye"
+                onClick={() => setShowCurrent((value) => !value)}
+                aria-label={showCurrent ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+          <label className="settings-field">
+            <span>Nova senha</span>
+            <div className="settings-input-wrap has-toggle">
+              <input
+                type={showNew ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                autoComplete="new-password"
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                className="settings-eye"
+                onClick={() => setShowNew((value) => !value)}
+                aria-label={showNew ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+          <label className="settings-field">
+            <span>Confirmar nova senha</span>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               minLength={6}
               autoComplete="new-password"
+              placeholder="••••••"
             />
-          </Field>
+            {password && confirmPassword && password !== confirmPassword ? (
+              <small className="settings-field-error">
+                As senhas não coincidem
+              </small>
+            ) : null}
+          </label>
+        </div>
 
-          <div className="settings-actions">
-            <Button
-              variant="primary"
-              type="submit"
-              loading={busy}
-              icon={<Save size={16} />}
-            >
-              Salvar alterações
-            </Button>
-          </div>
-        </form>
-      </Panel>
-    </section>
+        <div className="settings-form-actions">
+          <Button
+            variant="primary"
+            type="submit"
+            loading={busy}
+            icon={<Save size={16} />}
+          >
+            Salvar dados
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -380,7 +527,13 @@ function WhatsAppSettings() {
     }
   }
 
-  if (loading) return <Loading />;
+  if (loading) {
+    return (
+      <div role="tabpanel" className="settings-panel-content">
+        <Loading label="Carregando status do WhatsApp…" />
+      </div>
+    );
+  }
 
   const connected = Boolean(status?.connected);
   const configured = Boolean(status?.configured);
@@ -393,18 +546,22 @@ function WhatsAppSettings() {
         : "Não configurado";
 
   return (
-    <div className="whatsapp-settings">
-      <Feedback error={error} message={message} />
-      <p className="muted">
-        Crie e conecte uma instância na Send-API para envio automático de
-        confirmações e avisos de limpeza.
+    <div role="tabpanel" className="settings-panel-content">
+      <h3 className="settings-panel-title">
+        <MessageSquare size={16} />
+        Integração com WhatsApp
+      </h3>
+      <p className="muted settings-panel-lead">
+        Conecte o WhatsApp do hotel para envio automático de confirmações e
+        avisos de limpeza.
       </p>
 
+      <Feedback error={error} message={message} />
+
       <div
-        className={`whatsapp-status ${connected ? "ok" : status?.qrCode ? "pending" : ""}`}
+        className={`whatsapp-status-card ${connected ? "ok" : status?.qrCode ? "pending" : ""}`}
       >
-        {connected ? <CheckCircle2 size={20} /> : <Smartphone size={20} />}
-        <div>
+        <div className="whatsapp-status-copy">
           <strong>{statusLabel}</strong>
           {status?.phoneNumber ? (
             <p className="muted">Número: {status.phoneNumber}</p>
@@ -416,6 +573,9 @@ function WhatsAppSettings() {
             <p className="muted">Aguardando conexão...</p>
           ) : null}
         </div>
+        <span className="whatsapp-status-icon">
+          {connected ? <CheckCircle2 size={22} /> : <Smartphone size={22} />}
+        </span>
       </div>
 
       {status?.qrCode && !connected ? (

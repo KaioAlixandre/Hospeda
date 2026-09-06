@@ -31,6 +31,7 @@ export function AuthPage() {
 
   return (
     <div className="auth-screen">
+      <div className="auth-backdrop" aria-hidden />
       <div className="auth-card">
         <div className="auth-brand">
           <span className="brand-mark">H</span>
@@ -40,7 +41,34 @@ export function AuthPage() {
           </div>
         </div>
 
-        <h1>{mode === "login" ? "Entrar" : "Cadastrar hotel"}</h1>
+        <div className="auth-tabs" role="tablist" aria-label="Modo de acesso">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "login"}
+            className={mode === "login" ? "active" : undefined}
+            onClick={() => {
+              setMode("login");
+              setError(null);
+            }}
+          >
+            Entrar
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "register"}
+            className={mode === "register" ? "active" : undefined}
+            onClick={() => {
+              setMode("register");
+              setError(null);
+            }}
+          >
+            Cadastrar
+          </button>
+        </div>
+
+        <h1>{mode === "login" ? "Bem-vindo de volta" : "Cadastrar hotel"}</h1>
         <p className="muted">
           {mode === "login"
             ? "Acesse com o número e a senha do hotel."
@@ -95,19 +123,6 @@ export function AuthPage() {
             {mode === "login" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
-
-        <button
-          type="button"
-          className="auth-switch"
-          onClick={() => {
-            setMode(mode === "login" ? "register" : "login");
-            setError(null);
-          }}
-        >
-          {mode === "login"
-            ? "Não tem conta? Cadastre o hotel"
-            : "Já tem conta? Fazer login"}
-        </button>
       </div>
     </div>
   );
@@ -116,6 +131,7 @@ export function AuthPage() {
 export function AuthLoading() {
   return (
     <div className="auth-screen">
+      <div className="auth-backdrop" aria-hidden />
       <Loading label="Verificando sessão…" />
     </div>
   );

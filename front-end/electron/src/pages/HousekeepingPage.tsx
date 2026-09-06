@@ -1,57 +1,90 @@
 import {
+  Calendar,
   CheckCircle2,
   Pencil,
+  Phone,
   Plus,
   RefreshCw,
+  Search,
   SprayCan,
   Trash2,
+  User,
+  UserCheck,
+  Users,
   Wrench,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import {
-  Badge,
   Button,
   EmptyState,
   Feedback,
   Field,
-  Icon,
   Loading,
   Modal,
   Panel,
 } from "../components/ui";
 import type { HousekeepingBoard, RoomStatus, Zelador } from "../types";
-import { notificationFeedback } from "../lib/format";
+import { dateBR, notificationFeedback } from "../lib/format";
 
-const SUMMARY_META: Array<{ key: RoomStatus; label: string; icon: string; tone: string }> = [
-  { key: "AVAILABLE", label: "Disponível", icon: "door-open", tone: "green" },
-  { key: "OCCUPIED", label: "Ocupado", icon: "bed-double", tone: "red" },
-  { key: "CLEANING", label: "Limpeza", icon: "spray-can", tone: "yellow" },
-  { key: "RESERVED", label: "Reservado", icon: "calendar-check", tone: "blue" },
-  { key: "MAINTENANCE", label: "Manutenção", icon: "wrench", tone: "gray" },
+const SUMMARY_META: Array<{
+  key: RoomStatus;
+  label: string;
+  tone: string;
+}> = [
+  { key: "AVAILABLE", label: "disponível", tone: "green" },
+  { key: "OCCUPIED", label: "ocupado", tone: "red" },
+  { key: "CLEANING", label: "em limpeza", tone: "yellow" },
+  { key: "RESERVED", label: "reservado", tone: "blue" },
+  { key: "MAINTENANCE", label: "bloqueado", tone: "gray" },
 ];
 
-const FILTERS = [
-  { value: "", label: "Todos" },
-  ...SUMMARY_META.map((meta) => ({ value: meta.key, label: meta.label })),
-];
+const AVATAR_TONES = [
+  "indigo",
+  "emerald",
+  "amber",
+  "rose",
+  "cyan",
+  "violet",
+  "pink",
+  "teal",
+] as const;
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase() || "??";
+}
+
+function avatarTone(id: string): (typeof AVATAR_TONES)[number] {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash + id.charCodeAt(i) * (i + 1)) % AVATAR_TONES.length;
+  }
+  return AVATAR_TONES[hash];
+}
 
 export function HousekeepingPage() {
   const [board, setBoard] = useState<HousekeepingBoard | null>(null);
   const [zeladores, setZeladores] = useState<Zelador[]>([]);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState<RoomStatus | "">("");
+  const [zeladorSearch, setZeladorSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [editingZelador, setEditingZelador] = useState<Zelador | null | "new">(
     null,
   );
+  const [deletingZelador, setDeletingZelador] = useState<Zelador | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [boardData, zeladorList] = await Promise.all([
-        api.housekeeping.board(filter || undefined),
+        api.housekeeping.board(),
         api.housekeeping.zeladores.list(),
       ]);
       setBoard(boardData);
@@ -62,11 +95,31 @@ export function HousekeepingPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const visibleRooms = useMemo(() => {
+    if (!board) return [];
+    if (!filter) return board.rooms;
+    return board.rooms.filter((room) => room.status === filter);
+  }, [board, filter]);
+
+  const filteredZeladores = useMemo(() => {
+    const query = zeladorSearch.trim().toLowerCase();
+    if (!query) return zeladores;
+    return zeladores.filter(
+      (zelador) =>
+        zelador.name.toLowerCase().includes(query) ||
+        zelador.phone.toLowerCase().includes(query),
+    );
+  }, [zeladores, zeladorSearch]);
+
+  const cleaningCount = board?.summary.CLEANING ?? 0;
+  const availableCount = board?.summary.AVAILABLE ?? 0;
+  const maintenanceCount = board?.summary.MAINTENANCE ?? 0;
 
   async function run(action: () => Promise<unknown>, feedback: string) {
     setError(null);
@@ -80,15 +133,19 @@ export function HousekeepingPage() {
     }
   }
 
-  async function removeZelador(zelador: Zelador) {
-    if (!window.confirm(`Remover o zelador ${zelador.name}?`)) return;
+  async function confirmDeleteZelador() {
+    if (!deletingZelador) return;
+    setDeleting(true);
     setError(null);
     try {
-      await api.housekeeping.zeladores.remove(zelador.id);
-      setMessage(`Zelador ${zelador.name} removido.`);
+      await api.housekeeping.zeladores.remove(deletingZelador.id);
+      setMessage(`Zelador ${deletingZelador.name} removido.`);
+      setDeletingZelador(null);
       await load();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -100,13 +157,6 @@ export function HousekeepingPage() {
           <h1>Controle de limpeza</h1>
         </div>
         <div className="header-actions">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            {FILTERS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
           <Button icon={<RefreshCw size={16} />} onClick={load} loading={loading}>
             Atualizar
           </Button>
@@ -116,20 +166,129 @@ export function HousekeepingPage() {
       <Feedback error={error} message={message} />
 
       {board ? (
-        <div className="status-strip">
+        <div className="status-strip room-status-legend">
+          <button
+            type="button"
+            className={`status-chip filter-chip${filter === "" ? " active" : ""}`}
+            onClick={() => setFilter("")}
+          >
+            <span>todos</span>
+            <strong>{board.rooms.length}</strong>
+          </button>
           {SUMMARY_META.map((meta) => (
-            <div key={meta.key} className={`status-chip tone-${meta.tone}`}>
-              <Icon name={meta.icon} size={16} />
+            <button
+              type="button"
+              key={meta.key}
+              className={`status-chip filter-chip tone-${meta.tone}${
+                filter === meta.key ? " active" : ""
+              }`}
+              onClick={() =>
+                setFilter((current) => (current === meta.key ? "" : meta.key))
+              }
+            >
+              <span className="status-dot" />
               <span>{meta.label}</span>
               <strong>{board.summary[meta.key] ?? 0}</strong>
-            </div>
+            </button>
           ))}
         </div>
       ) : null}
 
-      <Panel
-        title="Zeladores"
-        action={
+      <Panel title="Quadro de limpeza">
+        {loading && !board ? (
+          <Loading />
+        ) : !board || visibleRooms.length === 0 ? (
+          <EmptyState message="Nenhum quarto neste filtro." />
+        ) : (
+          <div className="room-board-grid">
+            {visibleRooms.map((room) => (
+              <article
+                key={room.roomId}
+                className={`room-board-card tone-${room.statusColor}`}
+              >
+                <header className="room-board-head">
+                  <strong>Quarto {room.number}</strong>
+                </header>
+                <div className="room-board-body">
+                  <p className="room-board-empty muted">
+                    {room.type}
+                    {room.floor !== null ? ` · ${room.floor}º andar` : ""}
+                  </p>
+                  <div className="room-board-meta muted">
+                    <span>{room.statusLabel}</span>
+                  </div>
+                  <footer className="room-board-actions housekeeping-actions">
+                    {room.status === "CLEANING" ? (
+                      <button
+                        type="button"
+                        className="room-board-cta primary"
+                        onClick={() =>
+                          void run(
+                            () => api.housekeeping.ready(room.roomId),
+                            `Quarto ${room.number} liberado.`,
+                          )
+                        }
+                      >
+                        <CheckCircle2 size={14} /> liberar UH
+                      </button>
+                    ) : null}
+                    {["AVAILABLE", "OCCUPIED"].includes(room.status) ? (
+                      <button
+                        type="button"
+                        className="room-board-cta"
+                        onClick={() =>
+                          void run(
+                            () => api.housekeeping.startCleaning(room.roomId),
+                            `Quarto ${room.number} em limpeza.`,
+                          )
+                        }
+                      >
+                        <SprayCan size={14} /> limpeza
+                      </button>
+                    ) : null}
+                    {room.status === "MAINTENANCE" ? (
+                      <button
+                        type="button"
+                        className="room-board-cta primary"
+                        onClick={() =>
+                          void run(
+                            () =>
+                              api.housekeeping.releaseMaintenance(room.roomId),
+                            `Quarto ${room.number} liberado da manutenção.`,
+                          )
+                        }
+                      >
+                        liberar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="room-board-cta"
+                        disabled={["OCCUPIED", "RESERVED"].includes(room.status)}
+                        onClick={() =>
+                          void run(
+                            () => api.housekeeping.maintenance(room.roomId),
+                            `Quarto ${room.number} em manutenção.`,
+                          )
+                        }
+                      >
+                        <Wrench size={14} /> manutenção
+                      </button>
+                    )}
+                  </footer>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <section className="zeladores-section">
+        <header className="guests-header">
+          <div>
+            <h2>Zeladores</h2>
+            <p className="muted">Gerencie a equipe de limpeza e manutenção</p>
+          </div>
           <Button
             variant="primary"
             icon={<Plus size={16} />}
@@ -137,135 +296,215 @@ export function HousekeepingPage() {
           >
             Novo zelador
           </Button>
-        }
-      >
-        {loading && zeladores.length === 0 ? (
-          <Loading />
-        ) : zeladores.length === 0 ? (
-          <EmptyState message="Nenhum zelador cadastrado." />
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Telefone</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {zeladores.map((zelador) => (
-                <tr key={zelador.id}>
-                  <td>
-                    <strong>{zelador.name}</strong>
-                  </td>
-                  <td>{zelador.phone}</td>
-                  <td>
-                    <div className="cell-actions">
-                      <Button
-                        icon={<Pencil size={15} />}
+        </header>
+
+        <div className="guests-metrics">
+          <article className="guests-metric">
+            <span className="guests-metric-icon tone-brand">
+              <Users size={16} />
+            </span>
+            <div>
+              <p>Total</p>
+              <strong>{zeladores.length}</strong>
+            </div>
+          </article>
+          <article className="guests-metric">
+            <span className="guests-metric-icon tone-green">
+              <UserCheck size={16} />
+            </span>
+            <div>
+              <p>Disponíveis</p>
+              <strong>{availableCount}</strong>
+            </div>
+          </article>
+          <article className="guests-metric">
+            <span className="guests-metric-icon tone-amber">
+              <SprayCan size={16} />
+            </span>
+            <div>
+              <p>Em limpeza</p>
+              <strong>{cleaningCount}</strong>
+            </div>
+          </article>
+          <article className="guests-metric">
+            <span className="guests-metric-icon tone-violet">
+              <Wrench size={16} />
+            </span>
+            <div>
+              <p>Manutenção</p>
+              <strong>{maintenanceCount}</strong>
+            </div>
+          </article>
+        </div>
+
+        <div className="guests-panel">
+          {zeladores.length > 0 ? (
+            <div className="guests-panel-toolbar">
+              <label className="guests-search">
+                <Search size={16} strokeWidth={1.9} />
+                <input
+                  value={zeladorSearch}
+                  onChange={(event) => setZeladorSearch(event.target.value)}
+                  placeholder="Buscar por nome ou telefone..."
+                  aria-label="Pesquisar zeladores"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {loading && zeladores.length === 0 ? (
+            <div className="guests-empty">
+              <Loading label="Carregando zeladores…" />
+            </div>
+          ) : filteredZeladores.length === 0 ? (
+            <div className="guests-empty">
+              <div className="guests-empty-icon">
+                {zeladores.length === 0 ? (
+                  <User size={28} />
+                ) : (
+                  <Search size={28} />
+                )}
+              </div>
+              <p>
+                {zeladores.length === 0
+                  ? "Nenhum zelador cadastrado"
+                  : "Nenhum resultado encontrado"}
+              </p>
+              <span className="muted">
+                {zeladores.length === 0
+                  ? "Comece adicionando o primeiro zelador à equipe"
+                  : "Tente buscar com outros termos"}
+              </span>
+              {zeladores.length === 0 ? (
+                <Button
+                  variant="primary"
+                  icon={<Plus size={16} />}
+                  onClick={() => setEditingZelador("new")}
+                >
+                  Adicionar zelador
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <ul className="guests-mobile-list">
+                {filteredZeladores.map((zelador) => (
+                  <li key={zelador.id} className="guests-mobile-card">
+                    <div className="guests-mobile-top">
+                      <span
+                        className={`guest-avatar tone-${avatarTone(zelador.id)}`}
+                      >
+                        {getInitials(zelador.name)}
+                      </span>
+                      <div className="guests-mobile-copy">
+                        <strong>{zelador.name}</strong>
+                        <p className="guest-contact">
+                          <Phone size={13} /> {zelador.phone}
+                        </p>
+                        <p className="guest-contact">
+                          <Calendar size={13} /> Cadastro:{" "}
+                          {dateBR(zelador.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="guests-mobile-actions zelador-mobile-actions">
+                      <button
+                        type="button"
+                        className="guest-action-btn"
                         onClick={() => setEditingZelador(zelador)}
                       >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="danger"
-                        icon={<Trash2 size={15} />}
-                        onClick={() => void removeZelador(zelador)}
+                        <Pencil size={14} /> Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="guest-action-btn danger"
+                        onClick={() => setDeletingZelador(zelador)}
                       >
-                        Remover
-                      </Button>
+                        <Trash2 size={14} /> Remover
+                      </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Panel>
+                  </li>
+                ))}
+              </ul>
 
-      <Panel title="Quadro de quartos">
-        {loading && !board ? (
-          <Loading />
-        ) : !board || board.rooms.length === 0 ? (
-          <EmptyState message="Nenhum quarto neste filtro." />
-        ) : (
-          <div className="board-grid">
-            {board.rooms.map((room) => (
-              <article
-                key={room.roomId}
-                className={`board-card tone-${room.statusColor}`}
-              >
-                <header>
-                  <strong>{room.number}</strong>
-                  <Badge tone={room.statusColor} icon={room.statusIcon}>
-                    {room.statusLabel}
-                  </Badge>
-                </header>
+              <div className="guests-table-wrap">
+                <table className="guests-table">
+                  <thead>
+                    <tr>
+                      <th>Zelador</th>
+                      <th>Telefone</th>
+                      <th>Cadastro</th>
+                      <th className="text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredZeladores.map((zelador) => (
+                      <tr key={zelador.id}>
+                        <td>
+                          <div className="guest-identity">
+                            <span
+                              className={`guest-avatar tone-${avatarTone(zelador.id)}`}
+                            >
+                              {getInitials(zelador.name)}
+                            </span>
+                            <strong>{zelador.name}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="guest-contact">
+                            <Phone size={13} /> {zelador.phone}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="guest-contact">
+                            <Calendar size={13} />{" "}
+                            {dateBR(zelador.createdAt)}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          <div className="guest-row-actions">
+                            <button
+                              type="button"
+                              className="guest-icon-btn"
+                              title="Editar"
+                              onClick={() => setEditingZelador(zelador)}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="guest-icon-btn danger"
+                              title="Remover"
+                              onClick={() => setDeletingZelador(zelador)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <footer className="guests-panel-footer">
                 <p className="muted">
-                  {room.type}
-                  {room.floor !== null ? ` · ${room.floor}º andar` : ""}
+                  {filteredZeladores.length === zeladores.length
+                    ? `${filteredZeladores.length} zelador${
+                        filteredZeladores.length === 1 ? "" : "es"
+                      }`
+                    : `${filteredZeladores.length} de ${zeladores.length} zelador${
+                        zeladores.length === 1 ? "" : "es"
+                      }`}
                 </p>
-                <footer className="board-actions">
-                  {room.status === "CLEANING" ? (
-                    <Button
-                      variant="primary"
-                      icon={<CheckCircle2 size={15} />}
-                      onClick={() =>
-                        run(
-                          () => api.housekeeping.ready(room.roomId),
-                          `Quarto ${room.number} liberado.`,
-                        )
-                      }
-                    >
-                      Pronto
-                    </Button>
-                  ) : null}
-                  {["AVAILABLE", "OCCUPIED"].includes(room.status) ? (
-                    <Button
-                      icon={<SprayCan size={15} />}
-                      onClick={() =>
-                        run(
-                          () => api.housekeeping.startCleaning(room.roomId),
-                          `Quarto ${room.number} em limpeza.`,
-                        )
-                      }
-                    >
-                      Limpeza
-                    </Button>
-                  ) : null}
-                  {room.status === "MAINTENANCE" ? (
-                    <Button
-                      variant="primary"
-                      onClick={() =>
-                        run(
-                          () =>
-                            api.housekeeping.releaseMaintenance(room.roomId),
-                          `Quarto ${room.number} liberado da manutenção.`,
-                        )
-                      }
-                    >
-                      Liberar
-                    </Button>
-                  ) : (
-                    <Button
-                      icon={<Wrench size={15} />}
-                      disabled={["OCCUPIED", "RESERVED"].includes(room.status)}
-                      onClick={() =>
-                        run(
-                          () => api.housekeeping.maintenance(room.roomId),
-                          `Quarto ${room.number} em manutenção.`,
-                        )
-                      }
-                    >
-                      Manutenção
-                    </Button>
-                  )}
-                </footer>
-              </article>
-            ))}
-          </div>
-        )}
-      </Panel>
+                <p className="muted">
+                  Quartos em limpeza: <strong>{cleaningCount}</strong>
+                </p>
+              </footer>
+            </>
+          )}
+        </div>
+      </section>
 
       {editingZelador !== null ? (
         <ZeladorForm
@@ -277,6 +516,31 @@ export function HousekeepingPage() {
             await load();
           }}
         />
+      ) : null}
+
+      {deletingZelador ? (
+        <Modal title="Remover zelador" onClose={() => setDeletingZelador(null)}>
+          <p>
+            Tem certeza que deseja remover{" "}
+            <strong>{deletingZelador.name}</strong>? Esta ação não pode ser
+            desfeita.
+          </p>
+          <footer className="modal-foot">
+            <Button
+              onClick={() => setDeletingZelador(null)}
+              disabled={deleting}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleting}
+              onClick={() => void confirmDeleteZelador()}
+            >
+              Confirmar remoção
+            </Button>
+          </footer>
+        </Modal>
       ) : null}
     </section>
   );
@@ -319,17 +583,32 @@ function ZeladorForm({
       title={initial ? "Editar zelador" : "Novo zelador"}
       onClose={onClose}
     >
+      <p className="muted" style={{ marginTop: 0 }}>
+        {initial
+          ? "Atualize as informações do zelador"
+          : "Preencha os dados para cadastrar"}
+      </p>
       <Feedback error={error} />
       <div className="form-grid">
         <Field label="Nome">
-          <input value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="input-with-icon">
+            <User size={16} />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nome do zelador"
+            />
+          </div>
         </Field>
         <Field label="Telefone" hint="Com DDD">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="11999999999"
-          />
+          <div className="input-with-icon">
+            <Phone size={16} />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="11999999999"
+            />
+          </div>
         </Field>
       </div>
       <footer className="modal-foot">

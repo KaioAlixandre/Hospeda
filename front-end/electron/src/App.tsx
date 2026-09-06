@@ -10,7 +10,6 @@ import {
 import { NavLink, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
 import { Button } from "./components/ui";
-import { API_BASE_URL } from "./config";
 import { AuthLoading, AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GuestsPage } from "./pages/GuestsPage";
@@ -65,8 +64,6 @@ export function App() {
           <Button icon={<LogOut size={15} />} onClick={logout}>
             Sair
           </Button>
-          <span>API</span>
-          <code>{API_BASE_URL.replace(/^https?:\/\//, "")}</code>
         </footer>
       </aside>
 

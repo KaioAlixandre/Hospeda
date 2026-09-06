@@ -42,6 +42,8 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
     checkedOutToday,
     inHouseReservations,
     paymentsToday,
+    createdToday,
+    cancelledToday,
   ] = await Promise.all([
     prisma.room.groupBy({
       by: ["status"],
@@ -86,6 +88,20 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
         ],
       },
     }),
+    prisma.reservation.count({
+      where: {
+        hotelId,
+        createdAt: { gte: day, lt: nextDay },
+        status: { not: "CANCELLED" },
+      },
+    }),
+    prisma.reservation.count({
+      where: {
+        hotelId,
+        status: "CANCELLED",
+        updatedAt: { gte: day, lt: nextDay },
+      },
+    }),
   ]);
 
   const [arrivalsToday, departuresToday] = await Promise.all([
@@ -127,7 +143,6 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
   }
 
   const totalRooms = Object.values(roomStatus).reduce((sum, n) => sum + n, 0);
-  const availableRooms = roomStatus.AVAILABLE;
   const occupiedRooms = roomStatus.OCCUPIED;
   const maintenanceRooms = roomStatus.MAINTENANCE;
 
@@ -155,6 +170,24 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
     0,
   );
 
+  const adrSource =
+    inHouseReservations.length > 0 ? inHouseReservations : todayReservations;
+  const adr =
+    adrSource.length === 0
+      ? 0
+      : Number(
+          (
+            adrSource.reduce(
+              (sum, reservation) => sum + Number(reservation.nightlyRate),
+              0,
+            ) / adrSource.length
+          ).toFixed(2),
+        );
+  const revpar =
+    sellableRooms === 0
+      ? 0
+      : Number(((adr * occupiedRooms) / sellableRooms).toFixed(2));
+
   const mapStay = (reservation: (typeof todayReservations)[number]) => ({
     id: reservation.id,
     code: reservation.code,
@@ -170,52 +203,57 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
   return {
     date: dayLabel,
     cards: {
-      totalRooms: {
-        label: "Total de quartos",
-        icon: "hotel",
-        value: totalRooms,
+      occupancyRate: {
+        label: "Taxa de ocupação",
+        icon: "layers",
+        tone: "teal",
+        value: occupancyRate,
+        formatted: `${occupancyRate.toFixed(1)} %`,
       },
-      availableRooms: {
-        label: "Quartos disponíveis",
-        icon: "door-open",
-        value: availableRooms,
-      },
-      occupiedRooms: {
-        label: "Quartos ocupados",
-        icon: "bed-double",
-        value: occupiedRooms,
-      },
-      todayReservations: {
-        label: "Reservas de hoje",
-        icon: "calendar-days",
-        value: todayReservations.length,
+      revpar: {
+        label: "RevPAR",
+        icon: "grid",
+        tone: "teal",
+        value: revpar,
+        formatted: formatBRL(revpar),
       },
       revenue: {
-        label: "Faturamento",
-        icon: "wallet",
+        label: "Receitas",
+        icon: "credit-card",
+        tone: "teal",
         value: revenue,
         formatted: formatBRL(revenue),
       },
+      newReservations: {
+        label: "Novas reservas",
+        icon: "calendar-days",
+        tone: "teal",
+        value: createdToday,
+      },
       guestsInHouse: {
-        label: "Hóspedes hospedados",
+        label: "Nº de hóspedes",
         icon: "users",
+        tone: "blue",
         value: guestsInHouse,
       },
-      occupancyRate: {
-        label: "Taxa de ocupação",
+      adr: {
+        label: "Diária média",
         icon: "trending-up",
-        value: occupancyRate,
-        formatted: `${occupancyRate}%`,
-      },
-      checkInsToday: {
-        label: "Check-ins do dia",
-        icon: "log-in",
-        value: checkedInToday.length,
+        tone: "orange",
+        value: adr,
+        formatted: formatBRL(adr),
       },
       checkOutsToday: {
         label: "Check-outs do dia",
         icon: "log-out",
+        tone: "pink",
         value: checkedOutToday.length,
+      },
+      cancelledToday: {
+        label: "Reservas canceladas",
+        icon: "calendar-x",
+        tone: "purple",
+        value: cancelledToday,
       },
     },
     roomStatus,
@@ -230,6 +268,24 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
       refunds: Number(revenueRefunds.toFixed(2)),
       net: revenue,
       formatted: formatBRL(revenue),
+    },
+    chart: {
+      label: `Movimento do dia (${dayLabel.split("-").reverse().join("/")})`,
+      series: [
+        { key: "new", label: "Novas", tone: "teal", value: createdToday },
+        {
+          key: "cancelled",
+          label: "Canceladas",
+          tone: "pink",
+          value: cancelledToday,
+        },
+        {
+          key: "checkIns",
+          label: "Check-ins",
+          tone: "orange",
+          value: checkedInToday.length,
+        },
+      ],
     },
     today: {
       activeReservations: todayReservations.map(mapStay),

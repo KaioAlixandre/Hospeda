@@ -117,42 +117,45 @@ export function NewReservationModal({
         <EmptyState message="Cadastre um hóspede antes de criar reservas." />
       ) : null}
 
-      <div className="form-grid">
-        <Field label="Hóspede">
-          <select value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-            {guests.map((guest) => (
-              <option key={guest.id} value={guest.id}>
-                {guest.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Data de entrada">
-          <input
-            type="date"
-            value={checkInDate}
-            onChange={(e) => setCheckInDate(e.target.value)}
-          />
-        </Field>
-        <Field label="Data de saída">
-          <input
-            type="date"
-            value={checkOutDate}
-            onChange={(e) => setCheckOutDate(e.target.value)}
-          />
-        </Field>
-        <Field label="Quantidade de hóspedes">
-          <input
-            type="number"
-            min={1}
-            value={guestCount}
-            onChange={(e) => setGuestCount(e.target.value)}
-          />
-        </Field>
-        <Field label="Observações" hint="Opcional">
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-      </div>
+      <section className="modal-section">
+        <h3 className="modal-section-title">Dados da estadia</h3>
+        <div className="form-grid">
+          <Field label="Hóspede">
+            <select value={guestId} onChange={(e) => setGuestId(e.target.value)}>
+              {guests.map((guest) => (
+                <option key={guest.id} value={guest.id}>
+                  {guest.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Data de entrada">
+            <input
+              type="date"
+              value={checkInDate}
+              onChange={(e) => setCheckInDate(e.target.value)}
+            />
+          </Field>
+          <Field label="Data de saída">
+            <input
+              type="date"
+              value={checkOutDate}
+              onChange={(e) => setCheckOutDate(e.target.value)}
+            />
+          </Field>
+          <Field label="Quantidade de hóspedes">
+            <input
+              type="number"
+              min={1}
+              value={guestCount}
+              onChange={(e) => setGuestCount(e.target.value)}
+            />
+          </Field>
+          <Field label="Observações" hint="Opcional">
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+        </div>
+      </section>
 
       <div className="inline-actions">
         <Button
@@ -175,42 +178,45 @@ export function NewReservationModal({
       {searching ? <Loading label="Buscando combinações de quartos…" /> : null}
 
       {availability ? (
-        availability.options.length === 0 ? (
-          <EmptyState message="Nenhuma combinação de quartos disponível para o período informado." />
-        ) : (
-          <div className="option-list">
-            {availability.options.map((option) => (
-              <label
-                key={option.id}
-                className={
-                  selectedOptionId === option.id
-                    ? "option-card selected"
-                    : "option-card"
-                }
-              >
-                <input
-                  type="radio"
-                  name="room-option"
-                  checked={selectedOptionId === option.id}
-                  onChange={() => setSelectedOptionId(option.id)}
-                />
-                <div>
-                  <strong>{option.label}</strong>
-                  <span className="muted block">{option.description}</span>
-                  <span className="muted">
-                    {option.periodLabel} · {option.totalCapacity} lugares
-                  </span>
-                </div>
-                <div className="option-price">
-                  <strong>{brl(option.total)}</strong>
-                  <span className="muted">
-                    até {option.nights} × {brl(option.totalNightlyRate)}
-                  </span>
-                </div>
-              </label>
-            ))}
-          </div>
-        )
+        <section className="modal-section">
+          <h3 className="modal-section-title">Opções disponíveis</h3>
+          {availability.options.length === 0 ? (
+            <EmptyState message="Nenhuma combinação de quartos disponível para o período informado." />
+          ) : (
+            <div className="option-list">
+              {availability.options.map((option) => (
+                <label
+                  key={option.id}
+                  className={
+                    selectedOptionId === option.id
+                      ? "option-card selected"
+                      : "option-card"
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="room-option"
+                    checked={selectedOptionId === option.id}
+                    onChange={() => setSelectedOptionId(option.id)}
+                  />
+                  <div>
+                    <strong>{option.label}</strong>
+                    <span className="muted block">{option.description}</span>
+                    <span className="muted">
+                      {option.periodLabel} · {option.totalCapacity} lugares
+                    </span>
+                  </div>
+                  <div className="option-price">
+                    <strong>{brl(option.total)}</strong>
+                    <span className="muted">
+                      até {option.nights} × {brl(option.totalNightlyRate)}
+                    </span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </section>
       ) : null}
 
       <footer className="modal-foot">

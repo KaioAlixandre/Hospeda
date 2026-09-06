@@ -157,6 +157,10 @@ export function ReservationDetail({
     reservation.status === "COMPLETED" ||
     (isPending && !reservation.checkedInAt);
 
+  const displayTone = isInHouse
+    ? "red"
+    : statusTone(reservation.status);
+
   return (
     <Modal
       wide
@@ -166,44 +170,66 @@ export function ReservationDetail({
       <Feedback error={error} message={message} />
 
       <div className="detail-head">
-        <div>
-          <h3>{reservation.guest.name}</h3>
-          <p className="muted">
-            {reservation.roomSelection.length > 0
-              ? reservation.roomSelection
-                  .map(
-                    (entry) =>
-                      `Quarto ${entry.roomNumber} — ${entry.roomTypeName} (${entry.guests} hósp.)`,
-                  )
-                  .join(" · ")
-              : reservation.room
-                ? `Quarto ${reservation.room.number} — ${reservation.roomType.name}`
-                : `Tipo ${reservation.roomType.name} (sem quarto atribuído)`}
-          </p>
-          <p className="muted">
-            {dateBR(reservation.checkInDate)} — {dateBR(reservation.checkOutDate)} ·{" "}
-            {reservation.pricingSummary}
-          </p>
-          {isInHouse ? (
+        <div className="detail-head-main">
+          <span className={`status-square tone-${displayTone}`} />
+          <div>
+            <h3>{reservation.guest.name}</h3>
             <p className="muted">
-              Diárias cobradas: {reservation.billedNights} de até{" "}
-              {reservation.plannedNights} · valor aumenta a cada dia de estadia
+              {reservation.roomSelection.length > 0
+                ? reservation.roomSelection
+                    .map(
+                      (entry) =>
+                        `Quarto ${entry.roomNumber} — ${entry.roomTypeName} (${entry.guests} hósp.)`,
+                    )
+                    .join(" · ")
+                : reservation.room
+                  ? `Quarto ${reservation.room.number} — ${reservation.roomType.name}`
+                  : `Tipo ${reservation.roomType.name} (sem quarto atribuído)`}
             </p>
-          ) : !reservation.checkedInAt && reservation.status !== "CANCELLED" ? (
             <p className="muted">
-              Estimativa máxima: {brl(reservation.maxRoomTotal)} ({reservation.plannedNights}{" "}
-              diária{reservation.plannedNights > 1 ? "s" : ""}) — cobrança diária após check-in
+              {dateBR(reservation.checkInDate)} — {dateBR(reservation.checkOutDate)} ·{" "}
+              {reservation.pricingSummary}
             </p>
-          ) : null}
+            {isInHouse ? (
+              <p className="muted">
+                Diárias cobradas: {reservation.billedNights} de até{" "}
+                {reservation.plannedNights} · valor aumenta a cada dia de estadia
+              </p>
+            ) : !reservation.checkedInAt && reservation.status !== "CANCELLED" ? (
+              <p className="muted">
+                Estimativa máxima: {brl(reservation.maxRoomTotal)} ({reservation.plannedNights}{" "}
+                diária{reservation.plannedNights > 1 ? "s" : ""}) — cobrança diária após check-in
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="detail-status">
-          <Badge tone={statusTone(reservation.status)}>
-            {reservation.statusLabel}
+          <Badge tone={displayTone}>
+            {isInHouse ? "Hospedado" : reservation.statusLabel}
           </Badge>
           <Badge tone={BILL_TONE[bill.paymentStatus] ?? "gray"}>
             {bill.paymentStatus}
           </Badge>
         </div>
+      </div>
+
+      <div className="detail-kpi-grid">
+        <article className="detail-kpi">
+          <strong>{brl(bill.total)}</strong>
+          <span>Total</span>
+        </article>
+        <article className="detail-kpi">
+          <strong>{brl(bill.paid)}</strong>
+          <span>Pago</span>
+        </article>
+        <article className="detail-kpi tone-balance">
+          <strong>{brl(bill.balance)}</strong>
+          <span>Saldo</span>
+        </article>
+        <article className="detail-kpi">
+          <strong>{reservation.guests}</strong>
+          <span>Hóspedes</span>
+        </article>
       </div>
 
       <div className="action-bar">

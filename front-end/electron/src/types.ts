@@ -233,6 +233,7 @@ export type HousekeepingBoard = {
 type MetricCard = {
   label: string;
   icon: string;
+  tone?: string;
   value: number;
   formatted?: string;
 };
@@ -252,15 +253,14 @@ export type StaySummary = {
 export type Dashboard = {
   date: string;
   cards: {
-    totalRooms: MetricCard;
-    availableRooms: MetricCard;
-    occupiedRooms: MetricCard;
-    todayReservations: MetricCard;
-    revenue: MetricCard;
-    guestsInHouse: MetricCard;
     occupancyRate: MetricCard;
-    checkInsToday: MetricCard;
+    revpar: MetricCard;
+    revenue: MetricCard;
+    newReservations: MetricCard;
+    guestsInHouse: MetricCard;
+    adr: MetricCard;
     checkOutsToday: MetricCard;
+    cancelledToday: MetricCard;
   };
   roomStatus: Record<RoomStatus, number>;
   occupancy: {
@@ -270,6 +270,10 @@ export type Dashboard = {
     rateLabel: string;
   };
   revenue: { gross: number; refunds: number; net: number; formatted: string };
+  chart: {
+    label: string;
+    series: Array<{ key: string; label: string; tone: string; value: number }>;
+  };
   today: {
     activeReservations: StaySummary[];
     arrivalsExpected: StaySummary[];

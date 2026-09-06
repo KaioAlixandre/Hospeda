@@ -1,17 +1,33 @@
 import { RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { API_BASE_URL } from "../config";
 import { Button, EmptyState, Feedback, Icon, Loading, Panel } from "../components/ui";
 import { dateBR } from "../lib/format";
 import type { Dashboard, StaySummary } from "../types";
 
-const ROOM_STATUS_META: Array<{ key: keyof Dashboard["roomStatus"]; label: string; icon: string; tone: string }> = [
+const ROOM_STATUS_META: Array<{
+  key: keyof Dashboard["roomStatus"];
+  label: string;
+  icon: string;
+  tone: string;
+}> = [
   { key: "AVAILABLE", label: "Disponível", icon: "door-open", tone: "green" },
   { key: "OCCUPIED", label: "Ocupado", icon: "bed-double", tone: "red" },
   { key: "RESERVED", label: "Reservado", icon: "calendar-check", tone: "blue" },
   { key: "CLEANING", label: "Limpeza", icon: "spray-can", tone: "yellow" },
   { key: "MAINTENANCE", label: "Manutenção", icon: "wrench", tone: "gray" },
+];
+
+const KPI_ORDER: Array<keyof Dashboard["cards"]> = [
+  "occupancyRate",
+  "revpar",
+  "revenue",
+  "newReservations",
+  "guestsInHouse",
+  "adr",
+  "checkOutsToday",
+  "cancelledToday",
 ];
 
 function StayList({ items, empty }: { items: StaySummary[]; empty: string }) {
@@ -55,6 +71,11 @@ export function DashboardPage() {
     void load();
   }, [load]);
 
+  const chartMax = useMemo(() => {
+    if (!data?.chart) return 1;
+    return Math.max(1, ...data.chart.series.map((item) => item.value));
+  }, [data]);
+
   if (loading && !data) return <Loading label="Carregando indicadores…" />;
 
   if (error && !data) {
@@ -73,13 +94,11 @@ export function DashboardPage() {
 
   if (!data) return null;
 
-  const cards = Object.values(data.cards);
-
   return (
     <section className="page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Visão do dia</p>
+          <p className="eyebrow">Home / Indicadores</p>
           <h1>Dashboard</h1>
         </div>
         <div className="header-actions">
@@ -90,19 +109,62 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div className="metric-grid">
-        {cards.map((card) => (
-          <article key={card.label} className="metric-card">
-            <span className="metric-icon">
-              <Icon name={card.icon} />
-            </span>
-            <div>
-              <p>{card.label}</p>
-              <strong>{card.formatted ?? card.value}</strong>
-            </div>
-          </article>
-        ))}
-      </div>
+      <Feedback error={error} />
+
+      <section className="dashboard-section">
+        <h2 className="dashboard-section-title">Principais indicadores</h2>
+        <div className="kpi-grid">
+          {KPI_ORDER.map((key) => {
+            const card = data.cards[key];
+            if (!card) return null;
+            const tone = card.tone ?? "teal";
+            return (
+              <article key={key} className={`kpi-card tone-${tone}`}>
+                <div className="kpi-copy">
+                  <strong>{card.formatted ?? card.value}</strong>
+                  <p>{card.label}</p>
+                </div>
+                <span className="kpi-icon">
+                  <Icon name={card.icon} size={22} />
+                </span>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="dashboard-section">
+        <h2 className="dashboard-section-title">Principais gráficos</h2>
+        <Panel title={data.chart?.label ?? "Movimento do dia"}>
+          <div className="chart-legend">
+            {(data.chart?.series ?? []).map((series) => (
+              <span key={series.key} className={`chart-legend-item tone-${series.tone}`}>
+                <span className="chart-legend-dot" />
+                {series.label}
+              </span>
+            ))}
+          </div>
+          <div className="bar-chart" role="img" aria-label="Gráfico de movimento do dia">
+            {(data.chart?.series ?? []).map((series) => {
+              const height = Math.max(6, (series.value / chartMax) * 100);
+              return (
+                <div key={series.key} className="bar-chart-col">
+                  <div className="bar-chart-track">
+                    <div
+                      className={`bar-chart-fill tone-${series.tone}`}
+                      style={{ height: `${height}%` }}
+                      title={`${series.label}: ${series.value}`}
+                    >
+                      {series.value > 0 ? <span>{series.value}</span> : null}
+                    </div>
+                  </div>
+                  <span className="bar-chart-label">{series.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      </section>
 
       <Panel title="Situação dos quartos">
         <div className="status-strip">

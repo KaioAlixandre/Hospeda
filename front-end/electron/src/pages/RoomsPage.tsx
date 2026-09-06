@@ -1,8 +1,17 @@
-import { Layers, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarDays,
+  ChevronDown,
+  Layers,
+  Pencil,
+  Plus,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import {
-  Badge,
   Button,
   EmptyState,
   Feedback,
@@ -11,16 +20,27 @@ import {
   Modal,
   Panel,
 } from "../components/ui";
-import { brl } from "../lib/format";
-import type { Room, RoomType } from "../types";
+import { brl, dateBR } from "../lib/format";
+import type { Room, RoomStatus, RoomType, StaySummary } from "../types";
+
+const STATUS_META: Array<{
+  value: RoomStatus;
+  label: string;
+  tone: string;
+}> = [
+  { value: "AVAILABLE", label: "disponível", tone: "green" },
+  { value: "OCCUPIED", label: "ocupado", tone: "red" },
+  { value: "CLEANING", label: "em limpeza", tone: "yellow" },
+  { value: "RESERVED", label: "reservado", tone: "blue" },
+  { value: "MAINTENANCE", label: "bloqueado", tone: "gray" },
+];
 
 const STATUS_OPTIONS = [
   { value: "", label: "Todos os status" },
-  { value: "AVAILABLE", label: "Disponível" },
-  { value: "RESERVED", label: "Reservado" },
-  { value: "OCCUPIED", label: "Ocupado" },
-  { value: "CLEANING", label: "Limpeza" },
-  { value: "MAINTENANCE", label: "Manutenção" },
+  ...STATUS_META.map((meta) => ({
+    value: meta.value,
+    label: meta.label.charAt(0).toUpperCase() + meta.label.slice(1),
+  })),
 ];
 
 const MAX_PHOTOS = 8;
@@ -123,37 +143,71 @@ async function resolvePhotos(
 export function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [types, setTypes] = useState<RoomType[]>([]);
+  const [staysByRoom, setStaysByRoom] = useState<Record<string, StaySummary>>(
+    {},
+  );
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [editingType, setEditingType] = useState<RoomType | null | "new">(null);
   const [editingRoom, setEditingRoom] = useState<Room | null | "new">(null);
+  const [menuRoomId, setMenuRoomId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [roomList, typeList] = await Promise.all([
-        api.rooms.list(statusFilter ? { status: statusFilter } : undefined),
+      const [roomList, typeList, dashboard] = await Promise.all([
+        api.rooms.list(),
         api.roomTypes.list(),
+        api.dashboard().catch(() => null),
       ]);
       setRooms(roomList);
       setTypes(typeList);
+
+      const stays: Record<string, StaySummary> = {};
+      for (const stay of dashboard?.today.guestsInHouse ?? []) {
+        if (stay.roomNumber) stays[stay.roomNumber] = stay;
+      }
+      setStaysByRoom(stays);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const summary = useMemo(() => {
+    const counts: Record<RoomStatus, number> = {
+      AVAILABLE: 0,
+      OCCUPIED: 0,
+      CLEANING: 0,
+      RESERVED: 0,
+      MAINTENANCE: 0,
+    };
+    for (const room of rooms) {
+      counts[room.status] += 1;
+    }
+    return counts;
+  }, [rooms]);
+
+  const visibleRooms = useMemo(
+    () =>
+      statusFilter
+        ? rooms.filter((room) => room.status === statusFilter)
+        : rooms,
+    [rooms, statusFilter],
+  );
+
   async function handleDeleteRoom(room: Room) {
     if (!window.confirm(`Excluir o quarto ${room.number}?`)) return;
     setError(null);
+    setMenuRoomId(null);
     try {
       await api.rooms.remove(room.id);
       setMessage(`Quarto ${room.number} removido.`);
@@ -177,6 +231,7 @@ export function RoomsPage() {
 
   async function handleStatusChange(room: Room, status: string) {
     setError(null);
+    setMenuRoomId(null);
     try {
       await api.rooms.update(room.id, { status });
       await load();
@@ -189,7 +244,7 @@ export function RoomsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Cadastro</p>
+          <p className="eyebrow">Operação</p>
           <h1>Quartos</h1>
         </div>
         <div className="header-actions">
@@ -208,6 +263,180 @@ export function RoomsPage() {
       </header>
 
       <Feedback error={error} message={message} />
+
+      <div className="status-strip room-status-legend">
+        <button
+          type="button"
+          className={`status-chip filter-chip${statusFilter === "" ? " active" : ""}`}
+          onClick={() => setStatusFilter("")}
+        >
+          <span>todos</span>
+          <strong>{rooms.length}</strong>
+        </button>
+        {STATUS_META.map((meta) => (
+          <button
+            type="button"
+            key={meta.value}
+            className={`status-chip filter-chip tone-${meta.tone}${
+              statusFilter === meta.value ? " active" : ""
+            }`}
+            onClick={() =>
+              setStatusFilter((current) =>
+                current === meta.value ? "" : meta.value,
+              )
+            }
+          >
+            <span className="status-dot" />
+            <span>{meta.label}</span>
+            <strong>{summary[meta.value]}</strong>
+          </button>
+        ))}
+      </div>
+
+      <Panel title="Mapa de quartos">
+        {loading ? (
+          <Loading />
+        ) : rooms.length === 0 ? (
+          <EmptyState message="Nenhum quarto cadastrado." />
+        ) : visibleRooms.length === 0 ? (
+          <EmptyState message="Nenhum quarto neste status." />
+        ) : (
+          <div className="room-board-grid">
+            {visibleRooms.map((room) => {
+              const stay = staysByRoom[room.number];
+              const menuOpen = menuRoomId === room.id;
+              return (
+                <article
+                  key={room.id}
+                  className={`room-board-card tone-${room.statusColor}`}
+                >
+                  <header className="room-board-head">
+                    <strong>Quarto {room.number}</strong>
+                    <button
+                      type="button"
+                      className="room-board-menu-btn"
+                      aria-label="Ações do quarto"
+                      aria-expanded={menuOpen}
+                      onClick={() =>
+                        setMenuRoomId((current) =>
+                          current === room.id ? null : room.id,
+                        )
+                      }
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                    {menuOpen ? (
+                      <div className="room-board-menu">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuRoomId(null);
+                            setEditingRoom(room);
+                          }}
+                        >
+                          <Pencil size={14} /> Editar
+                        </button>
+                        <label className="room-board-menu-status">
+                          Status
+                          <select
+                            value={room.status}
+                            onChange={(event) =>
+                              void handleStatusChange(room, event.target.value)
+                            }
+                          >
+                            {STATUS_OPTIONS.filter((o) => o.value).map(
+                              (option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => void handleDeleteRoom(room)}
+                        >
+                          <Trash2 size={14} /> Excluir
+                        </button>
+                      </div>
+                    ) : null}
+                  </header>
+
+                  <div className="room-board-body">
+                    {stay ? (
+                      <>
+                        <p className="room-board-guest">
+                          <User size={15} strokeWidth={1.9} />
+                          <span>{stay.guestName}</span>
+                        </p>
+                        <p className="room-board-dates">
+                          <CalendarDays size={15} strokeWidth={1.9} />
+                          <span>
+                            {dateBR(stay.checkInDate)} —{" "}
+                            {dateBR(stay.checkOutDate)}
+                          </span>
+                        </p>
+                      </>
+                    ) : (
+                      <p className="room-board-empty muted">
+                        {room.type.name}
+                        {room.floor !== null ? ` · ${room.floor}º andar` : ""}
+                      </p>
+                    )}
+
+                    <div className="room-board-meta muted">
+                      <span>{brl(room.dailyPrice)}/diária</span>
+                      <span>{room.capacity} hóspedes</span>
+                    </div>
+
+                    <footer className="room-board-actions">
+                      {room.status === "AVAILABLE" ? (
+                        <Link className="room-board-cta" to="/reservations">
+                          + hospedar
+                        </Link>
+                      ) : null}
+                      {room.status === "OCCUPIED" ? (
+                        <Link className="room-board-cta" to="/reservations">
+                          ver reserva
+                        </Link>
+                      ) : null}
+                      {room.status === "CLEANING" ? (
+                        <button
+                          type="button"
+                          className="room-board-cta"
+                          onClick={() =>
+                            void handleStatusChange(room, "AVAILABLE")
+                          }
+                        >
+                          liberar UH
+                        </button>
+                      ) : null}
+                      {room.status === "MAINTENANCE" ? (
+                        <button
+                          type="button"
+                          className="room-board-cta"
+                          onClick={() =>
+                            void handleStatusChange(room, "AVAILABLE")
+                          }
+                        >
+                          liberar
+                        </button>
+                      ) : null}
+                      {room.status === "RESERVED" ? (
+                        <Link className="room-board-cta" to="/reservations">
+                          ver reserva
+                        </Link>
+                      ) : null}
+                    </footer>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Tipos de quarto">
         {types.length === 0 ? (
@@ -250,97 +479,6 @@ export function RoomsPage() {
               </article>
             ))}
           </div>
-        )}
-      </Panel>
-
-      <Panel
-        title="Quartos"
-        action={
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        }
-      >
-        {loading ? (
-          <Loading />
-        ) : rooms.length === 0 ? (
-          <EmptyState message="Nenhum quarto cadastrado." />
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Número</th>
-                <th>Tipo</th>
-                <th>Andar</th>
-                <th>Capacidade</th>
-                <th>Diária</th>
-                <th>Comodidades</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rooms.map((room) => (
-                <tr key={room.id}>
-                  <td>
-                    <strong>{room.number}</strong>
-                  </td>
-                  <td>{room.type.name}</td>
-                  <td>{room.floor ?? "—"}</td>
-                  <td>{room.capacity}</td>
-                  <td>{brl(room.dailyPrice)}</td>
-                  <td className="muted">
-                    {room.amenities.length > 0
-                      ? room.amenities.join(", ")
-                      : "—"}
-                  </td>
-                  <td>
-                    <div className="cell-actions">
-                      <Badge tone={room.statusColor} icon={room.statusIcon}>
-                        {room.statusLabel}
-                      </Badge>
-                      <select
-                        value={room.status}
-                        onChange={(event) =>
-                          handleStatusChange(room, event.target.value)
-                        }
-                      >
-                        {STATUS_OPTIONS.filter((o) => o.value).map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="cell-actions">
-                      <Button
-                        icon={<Pencil size={15} />}
-                        onClick={() => setEditingRoom(room)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="danger"
-                        icon={<Trash2 size={15} />}
-                        onClick={() => void handleDeleteRoom(room)}
-                      >
-                        Excluir
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </Panel>
 
