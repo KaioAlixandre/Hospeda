@@ -1,13 +1,17 @@
 import {
   Ban,
   BadgeCheck,
+  CircleDollarSign,
   CreditCard,
   LogIn,
   LogOut,
   Pencil,
   Plus,
+  Scale,
   Trash2,
   Undo2,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
@@ -136,7 +140,12 @@ export function ReservationDetail({
   if (!reservation) {
     return (
       <Modal wide title="Reserva" onClose={onClose}>
-        {error ? <Feedback error={error} /> : <Loading />}
+        <Feedback error={error} />
+        {error ? (
+          <EmptyState message="Não foi possível carregar esta reserva." />
+        ) : (
+          <Loading />
+        )}
       </Modal>
     );
   }
@@ -169,7 +178,7 @@ export function ReservationDetail({
     >
       <Feedback error={error} message={message} />
 
-      <div className="detail-head">
+      <div className={`detail-head tone-${displayTone}`}>
         <div className="detail-head-main">
           <span className={`status-square tone-${displayTone}`} />
           <div>
@@ -215,158 +224,182 @@ export function ReservationDetail({
 
       <div className="detail-kpi-grid">
         <article className="detail-kpi">
+          <span className="detail-kpi-icon">
+            <Wallet size={14} />
+          </span>
           <strong>{brl(bill.total)}</strong>
           <span>Total</span>
         </article>
         <article className="detail-kpi">
+          <span className="detail-kpi-icon">
+            <CircleDollarSign size={14} />
+          </span>
           <strong>{brl(bill.paid)}</strong>
           <span>Pago</span>
         </article>
         <article className="detail-kpi tone-balance">
+          <span className="detail-kpi-icon">
+            <Scale size={14} />
+          </span>
           <strong>{brl(bill.balance)}</strong>
           <span>Saldo</span>
         </article>
         <article className="detail-kpi">
+          <span className="detail-kpi-icon">
+            <Users size={14} />
+          </span>
           <strong>{reservation.guests}</strong>
           <span>Hóspedes</span>
         </article>
       </div>
 
       <div className="action-bar">
-        {canEdit ? (
-          <Button
-            icon={<Pencil size={15} />}
-            loading={busy}
-            onClick={() => setEditing((value) => !value)}
-          >
-            {editing ? "Fechar edição" : "Editar"}
-          </Button>
-        ) : null}
+        <div className="action-bar-group">
+          {canEdit ? (
+            <Button
+              icon={<Pencil size={15} />}
+              loading={busy}
+              onClick={() => setEditing((value) => !value)}
+            >
+              {editing ? "Fechar edição" : "Editar"}
+            </Button>
+          ) : null}
 
-        {isPending ? (
-          <Button
-            variant="primary"
-            icon={<BadgeCheck size={15} />}
-            loading={busy}
-            onClick={() =>
-              run(
-                () =>
-                  api.reservations.confirm(
-                    reservation.id,
-                    !hasAssignedRooms && roomId ? { roomId } : undefined,
-                  ),
-                "Reserva confirmada.",
-              )
-            }
-          >
-            Confirmar
-          </Button>
-        ) : null}
-
-        {canCheckIn ? (
-          <Button
-            variant="primary"
-            icon={<LogIn size={15} />}
-            loading={busy}
-            onClick={() =>
-              run(
-                () =>
-                  api.reservations.checkIn(
-                    reservation.id,
-                    !hasAssignedRooms && roomId ? { roomId } : undefined,
-                  ),
-                "Check-in registrado. Quarto ocupado.",
-              )
-            }
-          >
-            Check-in
-          </Button>
-        ) : null}
-
-        {isInHouse ? (
-          <Button
-            variant="primary"
-            icon={<LogOut size={15} />}
-            loading={busy}
-            onClick={() =>
-              run(
-                () => api.reservations.checkOut(reservation.id),
-                "Check-out concluído. Quarto enviado para limpeza.",
-              )
-            }
-          >
-            Check-out
-          </Button>
-        ) : null}
-
-        {(isPending || isConfirmed) && !reservation.checkedInAt ? (
-          <Button
-            variant="danger"
-            icon={<Ban size={15} />}
-            loading={busy}
-            onClick={() =>
-              run(() => api.reservations.cancel(reservation.id), "Reserva cancelada.")
-            }
-          >
-            Cancelar reserva
-          </Button>
-        ) : null}
-
-        {canDelete ? (
-          <Button
-            variant="danger"
-            icon={<Trash2 size={15} />}
-            loading={busy}
-            onClick={() => {
-              if (!window.confirm(`Excluir a reserva ${reservation.code}?`)) {
-                return;
+          {isPending ? (
+            <Button
+              variant="primary"
+              icon={<BadgeCheck size={15} />}
+              loading={busy}
+              onClick={() =>
+                run(
+                  () =>
+                    api.reservations.confirm(
+                      reservation.id,
+                      !hasAssignedRooms && roomId ? { roomId } : undefined,
+                    ),
+                  "Reserva confirmada.",
+                )
               }
-              void run(async () => {
-                await api.reservations.remove(reservation.id);
-                await onChanged();
-                onClose();
-              }, "Reserva excluída.");
-            }}
-          >
-            Excluir
-          </Button>
+            >
+              Confirmar
+            </Button>
+          ) : null}
+
+          {canCheckIn ? (
+            <Button
+              variant="primary"
+              icon={<LogIn size={15} />}
+              loading={busy}
+              onClick={() =>
+                run(
+                  () =>
+                    api.reservations.checkIn(
+                      reservation.id,
+                      !hasAssignedRooms && roomId ? { roomId } : undefined,
+                    ),
+                  "Check-in registrado. Quarto ocupado.",
+                )
+              }
+            >
+              Check-in
+            </Button>
+          ) : null}
+
+          {isInHouse ? (
+            <Button
+              variant="primary"
+              icon={<LogOut size={15} />}
+              loading={busy}
+              onClick={() =>
+                run(
+                  () => api.reservations.checkOut(reservation.id),
+                  "Check-out concluído. Quarto enviado para limpeza.",
+                )
+              }
+            >
+              Check-out
+            </Button>
+          ) : null}
+        </div>
+
+        {((isPending || isConfirmed) && !reservation.checkedInAt) || canDelete ? (
+          <div className="action-bar-group danger-group">
+            {(isPending || isConfirmed) && !reservation.checkedInAt ? (
+              <Button
+                variant="danger"
+                icon={<Ban size={15} />}
+                loading={busy}
+                onClick={() =>
+                  run(
+                    () => api.reservations.cancel(reservation.id),
+                    "Reserva cancelada.",
+                  )
+                }
+              >
+                Cancelar reserva
+              </Button>
+            ) : null}
+
+            {canDelete ? (
+              <Button
+                variant="danger"
+                icon={<Trash2 size={15} />}
+                loading={busy}
+                onClick={() => {
+                  if (!window.confirm(`Excluir a reserva ${reservation.code}?`)) {
+                    return;
+                  }
+                  void run(async () => {
+                    await api.reservations.remove(reservation.id);
+                    await onChanged();
+                    onClose();
+                  }, "Reserva excluída.");
+                }}
+              >
+                Excluir
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
       {editing && canEdit ? (
-        <div className="form-grid spaced">
-          <Field label="Data de entrada">
-            <input
-              type="date"
-              value={editCheckIn}
-              disabled={Boolean(reservation.checkedInAt)}
-              onChange={(e) => setEditCheckIn(e.target.value)}
-            />
-          </Field>
-          <Field label="Data de saída">
-            <input
-              type="date"
-              value={editCheckOut}
-              disabled={Boolean(reservation.checkedInAt)}
-              onChange={(e) => setEditCheckOut(e.target.value)}
-            />
-          </Field>
-          <Field label="Hóspedes">
-            <input
-              type="number"
-              min={1}
-              value={editGuests}
-              disabled={Boolean(reservation.checkedInAt)}
-              onChange={(e) => setEditGuests(e.target.value)}
-            />
-          </Field>
-          <Field label="Observações">
-            <input
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-            />
-          </Field>
-          <div className="settings-actions">
+        <div className="edit-panel">
+          <p className="modal-section-title">Editar reserva</p>
+          <div className="form-grid">
+            <Field label="Data de entrada">
+              <input
+                type="date"
+                value={editCheckIn}
+                disabled={Boolean(reservation.checkedInAt)}
+                onChange={(e) => setEditCheckIn(e.target.value)}
+              />
+            </Field>
+            <Field label="Data de saída">
+              <input
+                type="date"
+                value={editCheckOut}
+                disabled={Boolean(reservation.checkedInAt)}
+                onChange={(e) => setEditCheckOut(e.target.value)}
+              />
+            </Field>
+            <Field label="Hóspedes">
+              <input
+                type="number"
+                min={1}
+                value={editGuests}
+                disabled={Boolean(reservation.checkedInAt)}
+                onChange={(e) => setEditGuests(e.target.value)}
+              />
+            </Field>
+            <Field label="Observações">
+              <input
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="edit-panel-actions">
             <Button
               variant="primary"
               loading={busy}

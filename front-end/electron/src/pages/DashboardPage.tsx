@@ -1,7 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { API_BASE_URL } from "../config";
 import { Button, EmptyState, Feedback, Icon, Loading, Panel } from "../components/ui";
 import { dateBR } from "../lib/format";
 import type { Dashboard, StaySummary } from "../types";
@@ -82,9 +81,8 @@ export function DashboardPage() {
     return (
       <section className="page">
         <h1>Dashboard</h1>
-        <Feedback
-          error={`${error}. Confirme se a API está acessível em ${API_BASE_URL}.`}
-        />
+        <Feedback error={error} />
+        <EmptyState message="Não foi possível carregar os indicadores. Confirme se a API está acessível e tente novamente." />
         <Button variant="primary" icon={<RefreshCw size={16} />} onClick={load}>
           Tentar novamente
         </Button>

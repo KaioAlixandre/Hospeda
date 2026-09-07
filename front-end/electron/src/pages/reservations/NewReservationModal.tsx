@@ -1,4 +1,4 @@
-import { CalendarSearch } from "lucide-react";
+import { CalendarSearch, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api";
 import {
@@ -151,73 +151,78 @@ export function NewReservationModal({
               onChange={(e) => setGuestCount(e.target.value)}
             />
           </Field>
-          <Field label="Observações" hint="Opcional">
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </Field>
+          <div className="form-span">
+            <Field label="Observações" hint="Opcional">
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </Field>
+          </div>
         </div>
       </section>
 
-      <div className="inline-actions">
-        <Button
-          icon={<CalendarSearch size={16} />}
-          onClick={search}
-          loading={searching}
-        >
-          Verificar disponibilidade
-        </Button>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={confirmNow}
-            onChange={(e) => setConfirmNow(e.target.checked)}
-          />
-          Confirmar imediatamente
-        </label>
-      </div>
+      <section className="modal-section">
+        <h3 className="modal-section-title">Disponibilidade</h3>
+        <div className="availability-toolbar">
+          <Button
+            icon={<CalendarSearch size={16} />}
+            onClick={search}
+            loading={searching}
+          >
+            Verificar disponibilidade
+          </Button>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={confirmNow}
+              onChange={(e) => setConfirmNow(e.target.checked)}
+            />
+            Confirmar imediatamente
+          </label>
+        </div>
 
-      {searching ? <Loading label="Buscando combinações de quartos…" /> : null}
+        {searching ? <Loading label="Buscando combinações de quartos…" /> : null}
 
-      {availability ? (
-        <section className="modal-section">
-          <h3 className="modal-section-title">Opções disponíveis</h3>
-          {availability.options.length === 0 ? (
+        {availability ? (
+          availability.options.length === 0 ? (
             <EmptyState message="Nenhuma combinação de quartos disponível para o período informado." />
           ) : (
             <div className="option-list">
-              {availability.options.map((option) => (
-                <label
-                  key={option.id}
-                  className={
-                    selectedOptionId === option.id
-                      ? "option-card selected"
-                      : "option-card"
-                  }
-                >
-                  <input
-                    type="radio"
-                    name="room-option"
-                    checked={selectedOptionId === option.id}
-                    onChange={() => setSelectedOptionId(option.id)}
-                  />
-                  <div>
-                    <strong>{option.label}</strong>
-                    <span className="muted block">{option.description}</span>
-                    <span className="muted">
-                      {option.periodLabel} · {option.totalCapacity} lugares
+              {availability.options.map((option) => {
+                const selected = selectedOptionId === option.id;
+                return (
+                  <label
+                    key={option.id}
+                    className={selected ? "option-card selected" : "option-card"}
+                  >
+                    <input
+                      type="radio"
+                      name="room-option"
+                      className="sr-only"
+                      checked={selected}
+                      onChange={() => setSelectedOptionId(option.id)}
+                    />
+                    <span className="option-check">
+                      <Check size={12} />
                     </span>
-                  </div>
-                  <div className="option-price">
-                    <strong>{brl(option.total)}</strong>
-                    <span className="muted">
-                      até {option.nights} × {brl(option.totalNightlyRate)}
-                    </span>
-                  </div>
-                </label>
-              ))}
+                    <div>
+                      <strong>{option.label}</strong>
+                      <span className="muted block">{option.description}</span>
+                      <span className="muted">
+                        {option.periodLabel} · {option.totalCapacity} lugares
+                      </span>
+                    </div>
+                    <div className="option-price">
+                      <strong>{brl(option.total)}</strong>
+                      <span className="muted">
+                        até {option.nights} × {brl(option.totalNightlyRate)}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
-          )}
-        </section>
-      ) : null}
+          )
+        ) : null}
+      </section>
 
       <footer className="modal-foot">
         <Button onClick={onClose}>Cancelar</Button>

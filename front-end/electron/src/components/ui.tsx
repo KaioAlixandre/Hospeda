@@ -20,7 +20,14 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
+import { ptError } from "../lib/format";
+import { useToast } from "./ToastProvider";
 
 const ICONS: Record<string, LucideIcon> = {
   hotel: Hotel,
@@ -125,15 +132,29 @@ export function EmptyState({ message }: { message: string }) {
 export function Field({
   label,
   hint,
+  required,
+  optional,
   children,
 }: {
   label: string;
   hint?: string;
+  required?: boolean;
+  optional?: boolean;
   children: ReactNode;
 }) {
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>
+        {label}
+        {required ? (
+          <abbr className="field-required" title="Obrigatório">
+            *
+          </abbr>
+        ) : null}
+        {optional ? (
+          <span className="field-optional"> (opcional)</span>
+        ) : null}
+      </span>
       {children}
       {hint ? <small>{hint}</small> : null}
     </label>
@@ -169,6 +190,7 @@ export function Modal({
   );
 }
 
+/** Exibe erros e conclusões como pop-up (toast). */
 export function Feedback({
   error,
   message,
@@ -176,8 +198,31 @@ export function Feedback({
   error?: string | null;
   message?: string | null;
 }) {
-  if (error) return <p className="alert alert-error">{error}</p>;
-  if (message) return <p className="alert alert-ok">{message}</p>;
+  const { success, error: showError } = useToast();
+  const lastError = useRef<string | null>(null);
+  const lastMessage = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!error) {
+      lastError.current = null;
+      return;
+    }
+    const text = ptError(error);
+    if (text === lastError.current) return;
+    lastError.current = text;
+    showError(text);
+  }, [error, showError]);
+
+  useEffect(() => {
+    if (!message) {
+      lastMessage.current = null;
+      return;
+    }
+    if (message === lastMessage.current) return;
+    lastMessage.current = message;
+    success(message);
+  }, [message, success]);
+
   return null;
 }
 

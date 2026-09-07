@@ -69,3 +69,60 @@ export function cpfMask(value: string): string {
     .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
     .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
 }
+
+/** Traduz mensagens técnicas comuns da API/rede para português. */
+export function ptError(message: unknown): string {
+  const raw =
+    typeof message === "string"
+      ? message
+      : message instanceof Error
+        ? message.message
+        : "Ocorreu um erro inesperado.";
+
+  const text = raw.trim();
+  if (!text) return "Ocorreu um erro inesperado.";
+
+  const lower = text.toLowerCase();
+
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
+    lower.includes("load failed")
+  ) {
+    return "Não foi possível conectar à API. Verifique sua conexão.";
+  }
+
+  if (lower.includes("unauthorized") || lower.includes("401")) {
+    return "Sessão expirada ou acesso não autorizado. Faça login novamente.";
+  }
+
+  if (lower.includes("forbidden") || lower.includes("403")) {
+    return "Você não tem permissão para esta ação.";
+  }
+
+  if (lower.includes("not found") || lower.includes("404")) {
+    return "Registro não encontrado.";
+  }
+
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return "A requisição demorou demais. Tente novamente.";
+  }
+
+  if (lower.includes("internal server error") || lower.includes("500")) {
+    return "Erro interno no servidor. Tente novamente em instantes.";
+  }
+
+  const known: Record<string, string> = {
+    "Room not found": "Quarto não encontrado.",
+    "Room type not found": "Tipo de quarto não encontrado.",
+    "Guest not found": "Hóspede não encontrado.",
+    "Reservation not found": "Reserva não encontrada.",
+    "Cannot delete room with active reservations":
+      "Não é possível excluir um quarto com reservas ativas.",
+    "Invalid credentials": "Telefone ou senha inválidos.",
+    "Hotel already registered": "Este hotel já está cadastrado.",
+  };
+
+  return known[text] ?? text;
+}

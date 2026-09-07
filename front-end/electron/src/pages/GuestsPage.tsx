@@ -708,56 +708,78 @@ function GuestForm({
       onClose={onClose}
     >
       <Feedback error={error} />
+      <p className="muted form-required-note">
+        Campos com <abbr title="Obrigatório">*</abbr> são obrigatórios.
+      </p>
       <div className="form-grid">
-        <Field label="Nome">
-          <input value={form.name} onChange={(e) => set("name", e.target.value)} />
+        <Field label="Nome" required>
+          <input
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            required
+          />
         </Field>
-        <Field label="CPF" hint="Somente números">
+        <Field label="CPF" required hint="Somente números">
           <input
             value={form.cpf}
             onChange={(e) => set("cpf", e.target.value)}
             placeholder="12345678901"
             disabled={Boolean(initial)}
+            required
           />
         </Field>
-        <Field label="Telefone">
-          <input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+        <Field label="Telefone" required hint="Com DDD">
+          <input
+            value={form.phone}
+            onChange={(e) => set("phone", e.target.value)}
+            placeholder="11999999999"
+            required
+          />
         </Field>
-        <Field label="E-mail">
-          <input value={form.email} onChange={(e) => set("email", e.target.value)} />
+        <Field label="E-mail" optional>
+          <input
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+          />
         </Field>
-        <Field label="Rua">
-          <input value={form.street} onChange={(e) => set("street", e.target.value)} />
+        <Field label="Rua" optional>
+          <input
+            value={form.street}
+            onChange={(e) => set("street", e.target.value)}
+          />
         </Field>
-        <Field label="Número">
+        <Field label="Número" optional>
           <input
             value={form.number}
             onChange={(e) => set("number", e.target.value)}
           />
         </Field>
-        <Field label="Complemento">
+        <Field label="Complemento" optional>
           <input
             value={form.complement}
             onChange={(e) => set("complement", e.target.value)}
           />
         </Field>
-        <Field label="Bairro">
+        <Field label="Bairro" optional>
           <input
             value={form.neighborhood}
             onChange={(e) => set("neighborhood", e.target.value)}
           />
         </Field>
-        <Field label="Cidade">
-          <input value={form.city} onChange={(e) => set("city", e.target.value)} />
+        <Field label="Cidade" optional>
+          <input
+            value={form.city}
+            onChange={(e) => set("city", e.target.value)}
+          />
         </Field>
-        <Field label="UF" hint="2 letras">
+        <Field label="UF" optional hint="2 letras">
           <input
             maxLength={2}
             value={form.state}
             onChange={(e) => set("state", e.target.value.toUpperCase())}
           />
         </Field>
-        <Field label="CEP">
+        <Field label="CEP" optional>
           <input
             value={form.zipCode}
             onChange={(e) => set("zipCode", e.target.value)}
@@ -769,7 +791,12 @@ function GuestForm({
         <Button
           variant="primary"
           loading={saving}
-          disabled={!form.name.trim() || (!initial && !form.cpf.trim())}
+          disabled={
+            !form.name.trim() ||
+            !form.phone.trim() ||
+            form.phone.replace(/\D/g, "").length < 8 ||
+            (!initial && !form.cpf.trim())
+          }
           onClick={submit}
         >
           {initial ? "Salvar" : "Cadastrar hóspede"}
