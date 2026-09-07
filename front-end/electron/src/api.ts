@@ -19,6 +19,7 @@ export type AuthHotel = {
   name: string;
   ownerName: string;
   phone: string;
+  logoUrl: string | null;
   address: {
     street: string | null;
     number: string | null;
@@ -138,7 +139,7 @@ function query(params: Record<string, string | number | undefined>): string {
 
 export const api = {
   uploads: {
-    images: (files: File[], folder: "hotel-rooms" | "hotel-room-types") => {
+    images: (files: File[], folder: "hotel-rooms" | "hotel-room-types" | "hotel-logos") => {
       const formData = new FormData();
       for (const file of files) formData.append("images", file);
       return uploadFormData<{ urls: string[] }>(
@@ -164,6 +165,7 @@ export const api = {
       phone?: string;
       password?: string;
       currentPassword?: string;
+      logoUrl?: string | null;
       street?: string | null;
       number?: string | null;
       complement?: string | null;

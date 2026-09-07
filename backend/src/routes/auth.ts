@@ -29,6 +29,7 @@ const updateHotelSchema = z
     phone: z.string().min(8).optional(),
     password: z.string().min(6).optional(),
     currentPassword: z.string().min(1).optional(),
+    logoUrl: z.string().url().nullable().optional(),
     street: z.string().optional().nullable(),
     number: z.string().optional().nullable(),
     complement: z.string().optional().nullable(),
@@ -53,6 +54,7 @@ const updateHotelSchema = z
       data.ownerName !== undefined ||
       data.phone !== undefined ||
       data.password !== undefined ||
+      data.logoUrl !== undefined ||
       data.street !== undefined ||
       data.number !== undefined ||
       data.complement !== undefined ||

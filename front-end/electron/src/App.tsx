@@ -37,7 +37,17 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">H</span>
+          {hotel.logoUrl ? (
+            <img
+              className="brand-logo"
+              src={hotel.logoUrl}
+              alt={`Logo ${hotel.name}`}
+            />
+          ) : (
+            <span className="brand-mark">
+              {hotel.name.trim().charAt(0).toUpperCase() || "H"}
+            </span>
+          )}
           <div>
             <strong>{hotel.name}</strong>
             <p>{hotel.ownerName}</p>

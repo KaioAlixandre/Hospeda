@@ -32,6 +32,7 @@ type AuthContextValue = {
     phone?: string;
     password?: string;
     currentPassword?: string;
+    logoUrl?: string | null;
     street?: string | null;
     number?: string | null;
     complement?: string | null;
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone?: string;
       password?: string;
       currentPassword?: string;
+      logoUrl?: string | null;
       street?: string | null;
       number?: string | null;
       complement?: string | null;

@@ -6,7 +6,11 @@ import { AppError } from "../middleware/errorHandler.js";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 8;
 
-const ALLOWED_FOLDERS = new Set(["hotel-rooms", "hotel-room-types"]);
+const ALLOWED_FOLDERS = new Set([
+  "hotel-rooms",
+  "hotel-room-types",
+  "hotel-logos",
+]);
 
 const upload = multer({
   storage: multer.memoryStorage(),

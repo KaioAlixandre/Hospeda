@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Image,
   KeyRound,
   MapPin,
   MessageSquare,
@@ -13,7 +14,9 @@ import {
   Smartphone,
   Trash2,
   Unplug,
+  Upload,
   User,
+  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -120,6 +123,9 @@ function HotelSettingsTab() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   useEffect(() => {
     if (!hotel) return;
@@ -134,6 +140,53 @@ function HotelSettingsTab() {
     setState(hotel.address?.state ?? "");
     setZipCode(hotel.address?.zipCode ?? "");
   }, [hotel]);
+
+  useEffect(() => {
+    if (!selectedLogoFile) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(selectedLogoFile);
+    setLogoPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedLogoFile]);
+
+  async function uploadLogo() {
+    if (!selectedLogoFile) return;
+    setLogoUploading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { urls } = await api.uploads.images(
+        [selectedLogoFile],
+        "hotel-logos",
+      );
+      const logoUrl = urls[0];
+      if (!logoUrl) throw new Error("Falha ao enviar a logo.");
+      await updateHotel({ logoUrl });
+      setSelectedLogoFile(null);
+      setMessage("Logo enviada com sucesso.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
+  async function removeLogo() {
+    setLogoUploading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await updateHotel({ logoUrl: null });
+      setSelectedLogoFile(null);
+      setMessage("Logo removida.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLogoUploading(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -184,6 +237,63 @@ function HotelSettingsTab() {
       </h3>
 
       <Feedback error={error} message={message} />
+
+      <div className="hotel-logo-card">
+        <div className="hotel-logo-card-head">
+          <Image size={16} />
+          <h4>Logo do hotel</h4>
+        </div>
+        <div className="hotel-logo-card-body">
+          <div className="hotel-logo-preview">
+            {logoPreviewUrl ? (
+              <img src={logoPreviewUrl} alt="Prévia da logo" />
+            ) : hotel?.logoUrl ? (
+              <img src={hotel.logoUrl} alt="Logo do hotel" />
+            ) : (
+              <Image size={28} />
+            )}
+          </div>
+          <div className="hotel-logo-actions">
+            <p className="muted">
+              Exibida na barra lateral. JPG, PNG ou WebP · até 10 MB.
+            </p>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(event) =>
+                setSelectedLogoFile(event.target.files?.[0] ?? null)
+              }
+            />
+            <div className="hotel-logo-buttons">
+              <Button
+                variant="primary"
+                icon={<Upload size={15} />}
+                loading={logoUploading}
+                disabled={!selectedLogoFile || logoUploading}
+                onClick={() => void uploadLogo()}
+              >
+                Enviar
+              </Button>
+              <Button
+                disabled={logoUploading || !selectedLogoFile}
+                icon={<X size={15} />}
+                onClick={() => setSelectedLogoFile(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                icon={<Trash2 size={15} />}
+                loading={logoUploading}
+                disabled={logoUploading || (!hotel?.logoUrl && !logoPreviewUrl)}
+                onClick={() => void removeLogo()}
+              >
+                Remover
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <form className="settings-form-stack" onSubmit={submit}>
         <div className="settings-fields-grid">

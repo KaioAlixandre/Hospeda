@@ -57,6 +57,8 @@ model Hotel {
   /// Telefone/WhatsApp (login)
   phone        String   @unique
   passwordHash String
+  /// URL da logo (Cloudinary)
+  logoUrl      String?
   street       String?
   number       String?
   complement   String?

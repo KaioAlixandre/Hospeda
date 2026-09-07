@@ -96,6 +96,7 @@ export function ReservationDetail({
   const [editCheckOut, setEditCheckOut] = useState("");
   const [editGuests, setEditGuests] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [chargesOpen, setChargesOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -139,7 +140,7 @@ export function ReservationDetail({
 
   if (!reservation) {
     return (
-      <Modal wide title="Reserva" onClose={onClose}>
+      <Modal xl title="Reserva" onClose={onClose}>
         <Feedback error={error} />
         {error ? (
           <EmptyState message="Não foi possível carregar esta reserva." />
@@ -171,8 +172,9 @@ export function ReservationDetail({
     : statusTone(reservation.status);
 
   return (
+    <>
     <Modal
-      wide
+      xl
       title={`Reserva ${reservation.code}`}
       onClose={onClose}
     >
@@ -501,72 +503,16 @@ export function ReservationDetail({
             </li>
           </ul>
 
-          {isConfirmed ? (
-            <div className="mini-form">
-              <select
-                value={chargeType}
-                onChange={(e) => setChargeType(e.target.value)}
-              >
-                {CHARGE_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                placeholder="Descrição"
-                value={chargeDescription}
-                onChange={(e) => setChargeDescription(e.target.value)}
-              />
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="Valor"
-                value={chargeAmount}
-                onChange={(e) => setChargeAmount(e.target.value)}
-              />
-              <Button
-                icon={<Plus size={15} />}
-                loading={busy}
-                disabled={!chargeDescription || !chargeAmount}
-                onClick={() =>
-                  run(async () => {
-                    await api.reservations.addCharge(reservation.id, {
-                      type: chargeType,
-                      description: chargeDescription,
-                      amount: Number(chargeAmount),
-                    });
-                    setChargeDescription("");
-                    setChargeAmount("");
-                  }, "Lançamento adicionado.")
-                }
-              >
-                Lançar
-              </Button>
-            </div>
-          ) : null}
-
-          {reservation.charges.length === 0 ? (
-            <EmptyState message="Sem lançamentos." />
-          ) : (
-            <ul className="list compact">
-              {reservation.charges.map((charge) => (
-                <li key={charge.id}>
-                  <div>
-                    <strong>{charge.description}</strong>
-                    <span className="muted">
-                      {CHARGE_LABEL[charge.type] ?? charge.type}
-                    </span>
-                  </div>
-                  <span>
-                    {charge.type === "DISCOUNT" ? "− " : ""}
-                    {brl(charge.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="charges-launch">
+            <Button
+              icon={<Plus size={15} />}
+              onClick={() => setChargesOpen(true)}
+            >
+              {reservation.charges.length === 0
+                ? "Abrir lançamentos"
+                : `Lançamentos (${reservation.charges.length})`}
+            </Button>
+          </div>
         </section>
 
         <section className="panel">
@@ -690,6 +636,94 @@ export function ReservationDetail({
         </section>
       </div>
     </Modal>
+
+    {chargesOpen ? (
+      <Modal
+        wide
+        title={`Lançamentos · ${reservation.code}`}
+        onClose={() => setChargesOpen(false)}
+      >
+        <p className="muted charges-modal-intro">
+          Consumos, serviços e descontos da conta do hóspede.
+        </p>
+
+        {isConfirmed ? (
+          <div className="mini-form">
+            <select
+              value={chargeType}
+              onChange={(e) => setChargeType(e.target.value)}
+            >
+              {CHARGE_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            <input
+              placeholder="Descrição"
+              value={chargeDescription}
+              onChange={(e) => setChargeDescription(e.target.value)}
+            />
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Valor"
+              value={chargeAmount}
+              onChange={(e) => setChargeAmount(e.target.value)}
+            />
+            <Button
+              icon={<Plus size={15} />}
+              loading={busy}
+              disabled={!chargeDescription || !chargeAmount}
+              onClick={() =>
+                run(async () => {
+                  await api.reservations.addCharge(reservation.id, {
+                    type: chargeType,
+                    description: chargeDescription,
+                    amount: Number(chargeAmount),
+                  });
+                  setChargeDescription("");
+                  setChargeAmount("");
+                }, "Lançamento adicionado.")
+              }
+            >
+              Lançar
+            </Button>
+          </div>
+        ) : (
+          <p className="muted">
+            Confirme a reserva para adicionar novos lançamentos.
+          </p>
+        )}
+
+        {reservation.charges.length === 0 ? (
+          <EmptyState message="Sem lançamentos." />
+        ) : (
+          <ul className="list compact">
+            {reservation.charges.map((charge) => (
+              <li key={charge.id}>
+                <div>
+                  <strong>{charge.description}</strong>
+                  <span className="muted">
+                    {CHARGE_LABEL[charge.type] ?? charge.type}
+                  </span>
+                </div>
+                <span>
+                  {charge.type === "DISCOUNT" ? "− " : ""}
+                  {brl(charge.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <footer className="modal-foot">
+          <Button onClick={() => setChargesOpen(false)}>Fechar</Button>
+        </footer>
+      </Modal>
+    ) : null}
+    </>
   );
 }
 

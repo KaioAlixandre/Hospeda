@@ -166,16 +166,19 @@ export function Modal({
   onClose,
   children,
   wide,
+  xl,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  xl?: boolean;
 }) {
+  const sizeClass = xl ? "modal-xl" : wide ? "modal-wide" : "";
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className={wide ? "modal modal-wide" : "modal"}
+        className={["modal", sizeClass].filter(Boolean).join(" ")}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-head">

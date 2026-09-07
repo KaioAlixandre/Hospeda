@@ -22,6 +22,7 @@ export type AuthHotel = {
   name: string;
   ownerName: string;
   phone: string;
+  logoUrl: string | null;
   address: HotelAddress;
 };
 
@@ -34,6 +35,7 @@ type HotelRecord = {
   name: string;
   ownerName: string;
   phone: string;
+  logoUrl: string | null;
   street: string | null;
   number: string | null;
   complement: string | null;
@@ -85,6 +87,7 @@ function presentHotel(hotel: HotelRecord): AuthHotel {
     name: hotel.name,
     ownerName: hotel.ownerName,
     phone: hotel.phone,
+    logoUrl: hotel.logoUrl,
     address: {
       street: hotel.street,
       number: hotel.number,
@@ -174,6 +177,7 @@ export async function updateHotel(
     phone?: string;
     password?: string;
     currentPassword?: string;
+    logoUrl?: string | null;
     street?: string | null;
     number?: string | null;
     complement?: string | null;
@@ -228,6 +232,11 @@ export async function updateHotel(
     }
   }
 
+  let logoUrl = hotel.logoUrl;
+  if (input.logoUrl !== undefined) {
+    logoUrl = emptyToNull(input.logoUrl);
+  }
+
   const updated = await prisma.hotel.update({
     where: { id: hotelId },
     data: {
@@ -239,6 +248,7 @@ export async function updateHotel(
       ...(input.password
         ? { passwordHash: await bcrypt.hash(input.password, 10) }
         : {}),
+      ...(input.logoUrl !== undefined ? { logoUrl } : {}),
       ...(input.street !== undefined ? { street: emptyToNull(input.street) } : {}),
       ...(input.number !== undefined ? { number: emptyToNull(input.number) } : {}),
       ...(input.complement !== undefined
