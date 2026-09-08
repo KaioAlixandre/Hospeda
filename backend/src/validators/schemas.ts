@@ -153,6 +153,10 @@ export const checkOutSchema = z.object({
   payment: createPaymentSchema.optional(),
 });
 
+export const extendStaySchema = z.object({
+  checkOutDate: z.string().date(),
+});
+
 export const createZeladorSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(8),

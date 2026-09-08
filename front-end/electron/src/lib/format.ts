@@ -122,7 +122,24 @@ export function ptError(message: unknown): string {
       "Não é possível excluir um quarto com reservas ativas.",
     "Invalid credentials": "Telefone ou senha inválidos.",
     "Hotel already registered": "Este hotel já está cadastrado.",
+    "Only in-house reservations can be extended":
+      "Só é possível prorrogar reservas com hóspede hospedado.",
+    "Reservation has no assigned rooms":
+      "A reserva não tem quarto atribuído.",
+    "New check-out date must be after the current check-out date":
+      "A nova data de saída deve ser posterior à data atual de check-out.",
+    "checkOutDate must be after checkInDate":
+      "A data de saída deve ser posterior à de entrada.",
+    "One or more rooms are not available for the extended dates":
+      "Um ou mais quartos não estão disponíveis no período prorrogado.",
   };
+
+  if (lower.startsWith("room(s) ") && lower.includes("not available for the extended")) {
+    const match = text.match(/Room\(s\) (.+) not available/i);
+    return match
+      ? `Quarto(s) ${match[1]} indisponível(is) no período prorrogado.`
+      : known["One or more rooms are not available for the extended dates"];
+  }
 
   return known[text] ?? text;
 }

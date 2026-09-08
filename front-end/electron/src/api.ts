@@ -265,6 +265,8 @@ export const api = {
       id: string,
       body?: { payment?: { method: string; amount: number; notes?: string } },
     ) => post<Reservation>(`/reservations/${id}/check-out`, body ?? {}),
+    extend: (id: string, body: { checkOutDate: string }) =>
+      post<Reservation>(`/reservations/${id}/extend`, body),
     addCharge: (
       id: string,
       body: { type: string; description: string; amount: number },

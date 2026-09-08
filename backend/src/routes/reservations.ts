@@ -9,6 +9,7 @@ import {
   confirmReservationSchema,
   createChargeSchema,
   createReservationSchema,
+  extendStaySchema,
   updateReservationSchema,
 } from "../validators/schemas.js";
 import {
@@ -18,6 +19,7 @@ import {
   confirmReservation,
   createReservation,
   deleteReservation,
+  extendStayReservation,
   findAvailableRooms,
   getFolio,
   listReservations,
@@ -154,6 +156,20 @@ reservationsRouter.post("/:id/check-out", async (req, res, next) => {
       data,
     );
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+reservationsRouter.post("/:id/extend", async (req, res, next) => {
+  try {
+    const data = extendStaySchema.parse(req.body);
+    const reservation = await extendStayReservation(
+      hotelIdFrom(req),
+      req.params.id!,
+      data,
+    );
+    res.json(reservation);
   } catch (err) {
     next(err);
   }

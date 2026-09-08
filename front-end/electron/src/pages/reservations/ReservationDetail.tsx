@@ -1,6 +1,7 @@
 import {
   Ban,
   BadgeCheck,
+  CalendarPlus,
   CircleDollarSign,
   CreditCard,
   LogIn,
@@ -29,6 +30,12 @@ import type { Reservation, Room } from "../../types";
 
 function toDateInput(value: string): string {
   return value.slice(0, 10);
+}
+
+function addDaysISO(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 const CHARGE_TYPES = [
@@ -97,6 +104,8 @@ export function ReservationDetail({
   const [editGuests, setEditGuests] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [chargesOpen, setChargesOpen] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [extendCheckOut, setExtendCheckOut] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -308,19 +317,33 @@ export function ReservationDetail({
           ) : null}
 
           {isInHouse ? (
-            <Button
-              variant="primary"
-              icon={<LogOut size={15} />}
-              loading={busy}
-              onClick={() =>
-                run(
-                  () => api.reservations.checkOut(reservation.id),
-                  "Check-out concluído. Quarto enviado para limpeza.",
-                )
-              }
-            >
-              Check-out
-            </Button>
+            <>
+              <Button
+                icon={<CalendarPlus size={15} />}
+                loading={busy}
+                onClick={() => {
+                  setExtendCheckOut(
+                    addDaysISO(toDateInput(reservation.checkOutDate), 1),
+                  );
+                  setExtending(true);
+                }}
+              >
+                Prorrogar
+              </Button>
+              <Button
+                variant="primary"
+                icon={<LogOut size={15} />}
+                loading={busy}
+                onClick={() =>
+                  run(
+                    () => api.reservations.checkOut(reservation.id),
+                    "Check-out concluído. Quarto enviado para limpeza.",
+                  )
+                }
+              >
+                Check-out
+              </Button>
+            </>
           ) : null}
         </div>
 
@@ -720,6 +743,52 @@ export function ReservationDetail({
 
         <footer className="modal-foot">
           <Button onClick={() => setChargesOpen(false)}>Fechar</Button>
+        </footer>
+      </Modal>
+    ) : null}
+
+    {extending ? (
+      <Modal
+        title={`Prorrogar estadia · ${reservation.code}`}
+        onClose={() => setExtending(false)}
+      >
+        <p className="muted charges-modal-intro">
+          Saída prevista atual:{" "}
+          <strong>{dateBR(reservation.checkOutDate)}</strong>. Escolha uma data
+          posterior; o sistema verifica se o(s) quarto(s) continua(m)
+          disponível(is).
+        </p>
+        <Field label="Nova data de saída" required>
+          <input
+            type="date"
+            min={addDaysISO(toDateInput(reservation.checkOutDate), 1)}
+            value={extendCheckOut}
+            onChange={(e) => setExtendCheckOut(e.target.value)}
+          />
+        </Field>
+        <footer className="modal-foot">
+          <Button onClick={() => setExtending(false)} disabled={busy}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            icon={<CalendarPlus size={15} />}
+            loading={busy}
+            disabled={
+              !extendCheckOut ||
+              extendCheckOut <= toDateInput(reservation.checkOutDate)
+            }
+            onClick={() =>
+              void run(async () => {
+                await api.reservations.extend(reservation.id, {
+                  checkOutDate: extendCheckOut,
+                });
+                setExtending(false);
+              }, "Estadia prorrogada.")
+            }
+          >
+            Confirmar prorrogação
+          </Button>
         </footer>
       </Modal>
     ) : null}

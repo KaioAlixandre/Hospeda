@@ -611,6 +611,77 @@ export async function checkOutReservation(
   };
 }
 
+/** Prorroga a data de saída de uma reserva hospedada, se os quartos estiverem livres. */
+export async function extendStayReservation(
+  hotelId: string,
+  reservationId: string,
+  input: { checkOutDate: string },
+) {
+  const reservation = await loadReservation(hotelId, reservationId);
+
+  if (
+    reservation.status !== "CONFIRMED" ||
+    !reservation.checkedInAt ||
+    reservation.checkedOutAt
+  ) {
+    throw new AppError(400, "Only in-house reservations can be extended");
+  }
+
+  const roomIds = reservationRoomIds(reservation);
+  if (roomIds.length === 0) {
+    throw new AppError(400, "Reservation has no assigned rooms");
+  }
+
+  const checkInStr = reservation.checkInDate.toISOString().slice(0, 10);
+  const currentOutStr = reservation.checkOutDate.toISOString().slice(0, 10);
+  const checkIn = toDateOnly(checkInStr);
+  const currentOut = toDateOnly(currentOutStr);
+  const newOut = toDateOnly(input.checkOutDate);
+
+  if (newOut <= currentOut) {
+    throw new AppError(
+      400,
+      "New check-out date must be after the current check-out date",
+    );
+  }
+
+  if (newOut <= checkIn) {
+    throw new AppError(400, "checkOutDate must be after checkInDate");
+  }
+
+  const blocked = await getBlockedRoomIds(
+    hotelId,
+    checkIn,
+    newOut,
+    reservationId,
+  );
+  const conflicted = roomIds.filter((roomId) => blocked.has(roomId));
+  if (conflicted.length > 0) {
+    const rooms = await prisma.room.findMany({
+      where: { id: { in: conflicted }, hotelId },
+      select: { number: true },
+      orderBy: { number: "asc" },
+    });
+    const numbers = rooms.map((room) => room.number).join(", ");
+    throw new AppError(
+      409,
+      numbers
+        ? `Room(s) ${numbers} not available for the extended dates`
+        : "One or more rooms are not available for the extended dates",
+    );
+  }
+
+  await prisma.reservation.update({
+    where: { id: reservationId },
+    data: { checkOutDate: newOut },
+  });
+
+  const synced = await syncRoomCharges(
+    await loadReservation(hotelId, reservationId),
+  );
+  return presentReservation(synced);
+}
+
 
 export async function listReservations(hotelId: string, status?: string) {
   const reservations = await prisma.reservation.findMany({
