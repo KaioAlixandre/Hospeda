@@ -59,14 +59,11 @@ export async function markRoomCleaned(hotelId: string, roomId: string) {
   };
 }
 
-/** Enviar para limpeza (ex.: inspeção) */
+/** Enviar para limpeza a partir de qualquer status (exceto já em limpeza) */
 export async function startRoomCleaning(hotelId: string, roomId: string) {
   const room = await loadRoom(hotelId, roomId);
-  if (!["AVAILABLE", "OCCUPIED"].includes(room.status)) {
-    throw new AppError(
-      400,
-      `Cannot start cleaning from status ${room.status}`,
-    );
+  if (room.status === "CLEANING") {
+    throw new AppError(400, "Room is already in cleaning status");
   }
 
   const previous = room.status;

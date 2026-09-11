@@ -8,6 +8,7 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  Printer,
   QrCode,
   RefreshCw,
   Save,
@@ -29,8 +30,9 @@ import {
 import { api, type WhatsAppStatus } from "../api";
 import { useAuth } from "../auth";
 import { Button, Feedback, Loading } from "../components/ui";
+import { PrintSettingsTab } from "./settings/PrintSettingsTab";
 
-type SettingsTab = "hotel" | "whatsapp";
+type SettingsTab = "hotel" | "whatsapp" | "print";
 
 const TABS: Array<{
   id: SettingsTab;
@@ -50,6 +52,12 @@ const TABS: Array<{
     shortLabel: "WhatsApp",
     icon: <MessageSquare size={16} />,
   },
+  {
+    id: "print",
+    label: "Impressão",
+    shortLabel: "Impressão",
+    icon: <Printer size={16} />,
+  },
 ];
 
 export function SettingsPage() {
@@ -60,7 +68,7 @@ export function SettingsPage() {
       <header className="settings-page-header">
         <h1>Configurações</h1>
         <p className="muted">
-          Dados do estabelecimento e integração com WhatsApp.
+          Dados do estabelecimento, WhatsApp e impressão de reservas.
         </p>
       </header>
 
@@ -95,6 +103,7 @@ export function SettingsPage() {
         <div className="settings-tab-panel">
           {activeTab === "hotel" ? <HotelSettingsTab /> : null}
           {activeTab === "whatsapp" ? <WhatsAppSettings /> : null}
+          {activeTab === "print" ? <PrintSettingsTab /> : null}
         </div>
       </div>
     </section>

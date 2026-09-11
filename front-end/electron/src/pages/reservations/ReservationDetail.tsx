@@ -8,6 +8,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  Printer,
   Scale,
   Trash2,
   Undo2,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
+import { useAuth } from "../../auth";
 import {
   Badge,
   Button,
@@ -85,11 +87,13 @@ export function ReservationDetail({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const { hotel } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const [roomId, setRoomId] = useState("");
   const [chargeType, setChargeType] = useState("MINIBAR");
@@ -144,6 +148,34 @@ export function ReservationDetail({
       setMessage(null);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function printDetails() {
+    if (!reservation) return;
+    if (!window.hospeda?.print?.reservation) {
+      setError(
+        "Impressão disponível apenas no aplicativo desktop. Configure em Configurações → Impressão.",
+      );
+      return;
+    }
+    setPrinting(true);
+    setError(null);
+    try {
+      const result = await window.hospeda.print.reservation({
+        ...reservation,
+        hotel: { name: hotel?.name ?? "Hospeda" },
+      });
+      setMessage(
+        result.copies > 1
+          ? "Detalhes da reserva impressos (2 vias)."
+          : "Detalhes da reserva enviados à impressora.",
+      );
+    } catch (err) {
+      setError((err as Error).message);
+      setMessage(null);
+    } finally {
+      setPrinting(false);
     }
   }
 
@@ -266,6 +298,15 @@ export function ReservationDetail({
 
       <div className="action-bar">
         <div className="action-bar-group">
+          <Button
+            icon={<Printer size={15} />}
+            loading={printing}
+            disabled={busy}
+            onClick={() => void printDetails()}
+          >
+            Imprimir
+          </Button>
+
           {canEdit ? (
             <Button
               icon={<Pencil size={15} />}

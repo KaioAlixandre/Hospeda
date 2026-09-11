@@ -26,7 +26,7 @@ import {
   Loading,
   Modal,
 } from "../components/ui";
-import { brl, dateBR } from "../lib/format";
+import { brl, dateBR, notificationFeedback } from "../lib/format";
 import type { Room, RoomStatus, RoomType, StaySummary } from "../types";
 
 type RoomsTab = "rooms" | "types";
@@ -260,9 +260,18 @@ export function RoomsPage() {
 
   async function handleStatusChange(room: Room, status: string) {
     setError(null);
+    setMessage(null);
     setMenuRoomId(null);
     try {
-      await api.rooms.update(room.id, { status });
+      const result = await api.rooms.update(room.id, { status });
+      setMessage(
+        notificationFeedback(
+          status === "CLEANING"
+            ? `Quarto ${room.number} enviado para limpeza.`
+            : `Status do quarto ${room.number} atualizado.`,
+          result,
+        ),
+      );
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -798,11 +807,13 @@ function RoomForm({
         status,
       };
       if (initial) {
-        await api.rooms.update(initial.id, body);
-        await onSaved(`Quarto ${number} atualizado.`);
+        const result = await api.rooms.update(initial.id, body);
+        await onSaved(
+          notificationFeedback(`Quarto ${number} atualizado.`, result),
+        );
       } else {
-        await api.rooms.create(body);
-        await onSaved("Quarto cadastrado.");
+        const result = await api.rooms.create(body);
+        await onSaved(notificationFeedback("Quarto cadastrado.", result));
       }
     } catch (err) {
       setError((err as Error).message);

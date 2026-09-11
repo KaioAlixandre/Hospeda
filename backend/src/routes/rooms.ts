@@ -3,9 +3,31 @@ import { presentRoom } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
 import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { notifyZeladoresRoomCleaning } from "../services/messaging.js";
 import { createRoomSchema, updateRoomSchema } from "../validators/schemas.js";
 
 export const roomsRouter = Router();
+
+async function notifyCleaningIfNeeded(
+  hotelId: string,
+  previousStatus: string | null | undefined,
+  room: {
+    status: string;
+    number: string;
+    floor: number | null;
+    roomType: { name: string };
+  },
+) {
+  if (room.status !== "CLEANING") return undefined;
+  if (previousStatus === "CLEANING") return undefined;
+  return notifyZeladoresRoomCleaning(hotelId, [
+    {
+      number: room.number,
+      floor: room.floor,
+      roomType: { name: room.roomType.name },
+    },
+  ]);
+}
 
 roomsRouter.get("/", async (req, res, next) => {
   try {
@@ -63,7 +85,11 @@ roomsRouter.post("/", async (req, res, next) => {
       },
       include: { roomType: true },
     });
-    res.status(201).json(presentRoom(room));
+    const notification = await notifyCleaningIfNeeded(hotelId, null, room);
+    res.status(201).json({
+      ...presentRoom(room),
+      ...(notification ? { notification } : {}),
+    });
   } catch (err) {
     next(err);
   }
@@ -99,7 +125,17 @@ roomsRouter.patch("/:id", async (req, res, next) => {
       },
       include: { roomType: true },
     });
-    res.json(presentRoom(room));
+
+    const notification = await notifyCleaningIfNeeded(
+      hotelId,
+      existing.status,
+      room,
+    );
+
+    res.json({
+      ...presentRoom(room),
+      ...(notification ? { notification } : {}),
+    });
   } catch (err) {
     next(err);
   }

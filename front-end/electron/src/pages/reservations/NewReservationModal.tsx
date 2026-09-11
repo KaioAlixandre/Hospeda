@@ -1,5 +1,5 @@
-import { CalendarSearch, Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CalendarSearch, Check, Percent } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import {
   Button,
@@ -10,7 +10,11 @@ import {
   Modal,
 } from "../../components/ui";
 import { brl, notificationFeedback, todayISO } from "../../lib/format";
-import type { Availability, Guest } from "../../types";
+import type { Availability, AvailabilitySelection, Guest } from "../../types";
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
 export function NewReservationModal({
   onClose,
@@ -27,6 +31,8 @@ export function NewReservationModal({
   const [notes, setNotes] = useState("");
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState("");
+  const [nightlyRateInput, setNightlyRateInput] = useState("");
+  const [discountPercentInput, setDiscountPercentInput] = useState("");
   const [confirmNow, setConfirmNow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -42,6 +48,61 @@ export function NewReservationModal({
       .catch((err: Error) => setError(err.message));
   }, []);
 
+  const selectedOption = useMemo(
+    () =>
+      availability?.options.find((option) => option.id === selectedOptionId) ??
+      null,
+    [availability, selectedOptionId],
+  );
+
+  function applyOptionRates(option: AvailabilitySelection | null) {
+    if (!option) {
+      setNightlyRateInput("");
+      setDiscountPercentInput("");
+      return;
+    }
+    setNightlyRateInput(String(option.totalNightlyRate));
+    setDiscountPercentInput("");
+  }
+
+  function selectOption(optionId: string) {
+    setSelectedOptionId(optionId);
+    const option =
+      availability?.options.find((entry) => entry.id === optionId) ?? null;
+    applyOptionRates(option);
+  }
+
+  function onDiscountPercentChange(value: string) {
+    setDiscountPercentInput(value);
+    if (!selectedOption) return;
+    const percent = Number(value);
+    if (!value.trim() || !Number.isFinite(percent)) return;
+    const clamped = Math.min(100, Math.max(0, percent));
+    const discounted = roundMoney(
+      selectedOption.totalNightlyRate * (1 - clamped / 100),
+    );
+    setNightlyRateInput(String(discounted));
+  }
+
+  function onNightlyRateChange(value: string) {
+    setNightlyRateInput(value);
+    if (!selectedOption) return;
+    const rate = Number(value);
+    if (!value.trim() || !Number.isFinite(rate) || rate < 0) {
+      setDiscountPercentInput("");
+      return;
+    }
+    const catalog = selectedOption.totalNightlyRate;
+    if (catalog <= 0) {
+      setDiscountPercentInput(rate === 0 ? "100" : "0");
+      return;
+    }
+    const percent = roundMoney(((catalog - rate) / catalog) * 100);
+    setDiscountPercentInput(
+      percent > 0 ? String(Math.min(100, Math.max(0, percent))) : "",
+    );
+  }
+
   async function search() {
     const guestsNumber = Number(guestCount);
     if (!guestsNumber || guestsNumber < 1) {
@@ -52,6 +113,7 @@ export function NewReservationModal({
     setSearching(true);
     setError(null);
     setSelectedOptionId("");
+    applyOptionRates(null);
     try {
       const result = await api.availability({
         checkInDate,
@@ -59,7 +121,9 @@ export function NewReservationModal({
         guests: guestsNumber,
       });
       setAvailability(result);
-      setSelectedOptionId(result.options[0]?.id ?? "");
+      const first = result.options[0] ?? null;
+      setSelectedOptionId(first?.id ?? "");
+      applyOptionRates(first);
     } catch (err) {
       setAvailability(null);
       setError((err as Error).message);
@@ -70,12 +134,22 @@ export function NewReservationModal({
 
   async function submit() {
     const guestsNumber = Number(guestCount);
-    const selectedOption = availability?.options.find(
-      (option) => option.id === selectedOptionId,
-    );
 
     if (!selectedOption) {
       setError("Selecione uma opção de quarto na busca de disponibilidade.");
+      return;
+    }
+
+    const catalogRate = selectedOption.totalNightlyRate;
+    const negotiatedRate = Number(nightlyRateInput);
+    if (!Number.isFinite(negotiatedRate) || negotiatedRate < 0) {
+      setError("Informe um valor válido para a diária.");
+      return;
+    }
+    if (negotiatedRate > catalogRate) {
+      setError(
+        `A diária negociada não pode ser maior que ${brl(catalogRate)}.`,
+      );
       return;
     }
 
@@ -88,6 +162,8 @@ export function NewReservationModal({
         checkInDate,
         checkOutDate,
         guests: guestsNumber,
+        nightlyRate:
+          negotiatedRate === catalogRate ? undefined : negotiatedRate,
         notes: notes || undefined,
         status: confirmNow ? "CONFIRMED" : "PENDING",
       });
@@ -108,6 +184,20 @@ export function NewReservationModal({
       selectedOptionId &&
       Number(guestCount) > 0,
   );
+
+  const catalogRate = selectedOption?.totalNightlyRate ?? 0;
+  const negotiatedRate = Number(nightlyRateInput);
+  const hasValidNegotiated =
+    Number.isFinite(negotiatedRate) && negotiatedRate >= 0;
+  const nights = selectedOption?.nights ?? 0;
+  const estimatedTotal = hasValidNegotiated
+    ? roundMoney(negotiatedRate * nights)
+    : selectedOption?.total ?? 0;
+  const hasDiscount =
+    hasValidNegotiated && catalogRate > 0 && negotiatedRate < catalogRate;
+  const discountAmount = hasDiscount
+    ? roundMoney(catalogRate - negotiatedRate)
+    : 0;
 
   return (
     <Modal wide title="Nova reserva" onClose={onClose}>
@@ -189,34 +279,112 @@ export function NewReservationModal({
               {availability.options.map((option) => {
                 const selected = selectedOptionId === option.id;
                 return (
-                  <label
-                    key={option.id}
-                    className={selected ? "option-card selected" : "option-card"}
-                  >
-                    <input
-                      type="radio"
-                      name="room-option"
-                      className="sr-only"
-                      checked={selected}
-                      onChange={() => setSelectedOptionId(option.id)}
-                    />
-                    <span className="option-check">
-                      <Check size={12} />
-                    </span>
-                    <div>
-                      <strong>{option.label}</strong>
-                      <span className="muted block">{option.description}</span>
-                      <span className="muted">
-                        {option.periodLabel} · {option.totalCapacity} lugares
+                  <div key={option.id} className="option-block">
+                    <label
+                      className={
+                        selected ? "option-card selected" : "option-card"
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="room-option"
+                        className="sr-only"
+                        checked={selected}
+                        onChange={() => selectOption(option.id)}
+                      />
+                      <span className="option-check">
+                        <Check size={12} />
                       </span>
-                    </div>
-                    <div className="option-price">
-                      <strong>{brl(option.total)}</strong>
-                      <span className="muted">
-                        até {option.nights} × {brl(option.totalNightlyRate)}
-                      </span>
-                    </div>
-                  </label>
+                      <div>
+                        <strong>{option.label}</strong>
+                        <span className="muted block">{option.description}</span>
+                        <span className="muted">
+                          {option.periodLabel} · {option.totalCapacity} lugares
+                        </span>
+                      </div>
+                      <div className="option-price">
+                        <strong>
+                          {selected && hasDiscount
+                            ? brl(estimatedTotal)
+                            : brl(option.total)}
+                        </strong>
+                        <span className="muted">
+                          {selected && hasDiscount
+                            ? `até ${option.nights} × ${brl(negotiatedRate)}`
+                            : `até ${option.nights} × ${brl(option.totalNightlyRate)}`}
+                        </span>
+                      </div>
+                    </label>
+
+                    {selected ? (
+                      <div className="rate-discount-card">
+                        <div className="rate-discount-head">
+                          <Percent size={16} />
+                          <div>
+                            <strong>Desconto na diária</strong>
+                            <p className="muted">
+                              Opcional — sobre {brl(option.totalNightlyRate)} /
+                              diária.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="form-grid rate-discount-grid">
+                          <Field label="Desconto (%)">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.1}
+                              placeholder="0"
+                              value={discountPercentInput}
+                              onChange={(e) =>
+                                onDiscountPercentChange(e.target.value)
+                              }
+                            />
+                          </Field>
+                          <Field label="Diária negociada (R$)">
+                            <input
+                              type="number"
+                              min={0}
+                              max={option.totalNightlyRate}
+                              step={0.01}
+                              value={nightlyRateInput}
+                              onChange={(e) =>
+                                onNightlyRateChange(e.target.value)
+                              }
+                            />
+                          </Field>
+                        </div>
+
+                        <div className="rate-discount-summary">
+                          <div>
+                            <span className="muted">Diária original</span>
+                            <strong
+                              className={hasDiscount ? "rate-was" : undefined}
+                            >
+                              {brl(option.totalNightlyRate)}
+                            </strong>
+                          </div>
+                          {hasDiscount ? (
+                            <div>
+                              <span className="muted">Desconto / diária</span>
+                              <strong className="rate-save">
+                                −{brl(discountAmount)}
+                              </strong>
+                            </div>
+                          ) : null}
+                          <div>
+                            <span className="muted">
+                              Total estimado ({option.nights} diária
+                              {option.nights === 1 ? "" : "s"})
+                            </span>
+                            <strong>{brl(estimatedTotal)}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

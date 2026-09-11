@@ -240,6 +240,7 @@ export const api = {
       checkInDate: string;
       checkOutDate: string;
       guests: number;
+      nightlyRate?: number;
       notes?: string;
       status?: "PENDING" | "CONFIRMED";
     }) => post<Reservation>("/reservations", body),
