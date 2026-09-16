@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  FileText,
   Image,
   KeyRound,
   MapPin,
@@ -30,6 +31,7 @@ import {
 import { api, type WhatsAppStatus } from "../api";
 import { useAuth } from "../auth";
 import { Button, Feedback, Loading } from "../components/ui";
+import { cnpjMask } from "../lib/format";
 import { PrintSettingsTab } from "./settings/PrintSettingsTab";
 
 type SettingsTab = "hotel" | "whatsapp" | "print";
@@ -114,6 +116,7 @@ function HotelSettingsTab() {
   const { hotel, updateHotel } = useAuth();
   const [name, setName] = useState(hotel?.name ?? "");
   const [ownerName, setOwnerName] = useState(hotel?.ownerName ?? "");
+  const [cnpj, setCnpj] = useState(cnpjMask(hotel?.cnpj ?? ""));
   const [phone, setPhone] = useState(hotel?.phone ?? "");
   const [street, setStreet] = useState(hotel?.address?.street ?? "");
   const [number, setNumber] = useState(hotel?.address?.number ?? "");
@@ -140,6 +143,7 @@ function HotelSettingsTab() {
     if (!hotel) return;
     setName(hotel.name);
     setOwnerName(hotel.ownerName);
+    setCnpj(cnpjMask(hotel.cnpj ?? ""));
     setPhone(hotel.phone);
     setStreet(hotel.address?.street ?? "");
     setNumber(hotel.address?.number ?? "");
@@ -212,11 +216,18 @@ function HotelSettingsTab() {
       return;
     }
 
+    const cnpjDigits = cnpj.replace(/\D/g, "");
+    if (cnpjDigits && cnpjDigits.length !== 14) {
+      setError("O CNPJ deve ter 14 dígitos.");
+      return;
+    }
+
     setBusy(true);
     try {
       await updateHotel({
         name: name.trim(),
         ownerName: ownerName.trim(),
+        cnpj: cnpjDigits || null,
         phone,
         street,
         number,
@@ -332,6 +343,20 @@ function HotelSettingsTab() {
                 placeholder="Seu nome"
               />
             </div>
+          </label>
+
+          <label className="settings-field">
+            <span>CNPJ</span>
+            <div className="settings-input-wrap">
+              <FileText size={16} />
+              <input
+                value={cnpj}
+                onChange={(e) => setCnpj(cnpjMask(e.target.value))}
+                inputMode="numeric"
+                placeholder="00.000.000/0000-00"
+              />
+            </div>
+            <small className="muted">Opcional — aparece no cupom impresso.</small>
           </label>
 
           <label className="settings-field">

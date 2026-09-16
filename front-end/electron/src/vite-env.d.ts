@@ -29,7 +29,12 @@ declare global {
           settings: Partial<PrintSettings>,
         ) => Promise<PrintSettings>;
         listPrinters: () => Promise<string[]>;
-        test: (overrides?: Partial<PrintSettings> & { hotelName?: string }) => Promise<{
+        test: (
+          overrides?: Partial<PrintSettings> & {
+            hotelName?: string;
+            hotelCnpj?: string;
+          },
+        ) => Promise<{
           ok: boolean;
           copies: number;
         }>;

@@ -164,7 +164,11 @@ export function ReservationDetail({
     try {
       const result = await window.hospeda.print.reservation({
         ...reservation,
-        hotel: { name: hotel?.name ?? "Hospeda" },
+        hotel: {
+          name: hotel?.name ?? "Hospeda",
+          cnpj: hotel?.cnpj ?? null,
+          cnpjFormatted: hotel?.cnpjFormatted ?? null,
+        },
       });
       setMessage(
         result.copies > 1

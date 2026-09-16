@@ -18,6 +18,8 @@ export type AuthHotel = {
   id: string;
   name: string;
   ownerName: string;
+  cnpj: string | null;
+  cnpjFormatted: string | null;
   phone: string;
   logoUrl: string | null;
   address: {
@@ -153,6 +155,7 @@ export const api = {
     register: (body: {
       name: string;
       ownerName: string;
+      cnpj?: string | null;
       phone: string;
       password: string;
     }) => post<AuthSession>("/auth/register", body, false),
@@ -162,6 +165,7 @@ export const api = {
     update: (body: {
       name?: string;
       ownerName?: string;
+      cnpj?: string | null;
       phone?: string;
       password?: string;
       currentPassword?: string;

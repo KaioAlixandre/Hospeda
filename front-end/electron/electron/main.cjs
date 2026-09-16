@@ -188,12 +188,12 @@ async function runReservationPrint(payload, settingsOverride) {
   return { ok: true, copies };
 }
 
-function sampleReservationPayload(hotelName) {
+function sampleReservationPayload(hotelName, hotelCnpj) {
   return {
     id: "test",
     code: "HSP-TEST",
     statusLabel: "Confirmada",
-    hotel: { name: hotelName || "Hospeda" },
+    hotel: { name: hotelName || "Hospeda", cnpj: hotelCnpj || null },
     guest: {
       name: "Maria Silva",
       phone: "(11) 99999-0000",
@@ -293,9 +293,11 @@ function registerPrintIpc() {
   });
 
   ipcMain.handle("print:test", async (_event, overrides) => {
-    const hotelName =
-      overrides && typeof overrides === "object" ? overrides.hotelName : undefined;
-    return runReservationPrint(sampleReservationPayload(hotelName), overrides);
+    const settings = overrides && typeof overrides === "object" ? overrides : {};
+    return runReservationPrint(
+      sampleReservationPayload(settings.hotelName, settings.hotelCnpj),
+      overrides,
+    );
   });
 
   ipcMain.handle("print:reservation", async (_event, payload) => {

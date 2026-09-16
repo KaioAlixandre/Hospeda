@@ -43,6 +43,16 @@ function dateTimeBR(value) {
   return d.toLocaleString("pt-BR");
 }
 
+function formatCnpj(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length !== 14) return digits;
+  return digits.replace(
+    /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+    "$1.$2.$3/$4-$5",
+  );
+}
+
 function padRight(value, width) {
   const s = String(value ?? "");
   return s.length >= width ? s.slice(0, width) : s + " ".repeat(width - s.length);
@@ -103,8 +113,14 @@ function buildReservationReceipt(payload, receiptWidth) {
   const charges = Array.isArray(payload?.charges) ? payload.charges : [];
   const payments = Array.isArray(payload?.payments) ? payload.payments : [];
   const hotelName = String(hotel.name || payload?.hotelName || "Hospeda").trim();
+  const hotelCnpj = formatCnpj(
+    hotel.cnpjFormatted || hotel.cnpj || payload?.hotelCnpj,
+  );
 
   pushLine(lines, styles, center(hotelName, w), "titleCenter");
+  if (hotelCnpj) {
+    pushLine(lines, styles, center(`CNPJ: ${hotelCnpj}`, w), "muted");
+  }
   pushLine(lines, styles, "-".repeat(w));
   pushLine(lines, styles, center(`RESERVA ${payload.code || ""}`, w), "heading");
   pushLine(lines, styles, center(dateTimeBR(new Date().toISOString()), w), "muted");

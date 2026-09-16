@@ -21,6 +21,8 @@ export type AuthHotel = {
   id: string;
   name: string;
   ownerName: string;
+  cnpj: string | null;
+  cnpjFormatted: string | null;
   phone: string;
   logoUrl: string | null;
   address: HotelAddress;
@@ -34,6 +36,7 @@ type HotelRecord = {
   id: string;
   name: string;
   ownerName: string;
+  cnpj: string | null;
   phone: string;
   logoUrl: string | null;
   street: string | null;
@@ -53,6 +56,16 @@ function emptyToNull(value: string | null | undefined): string | null {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+export function formatCnpj(cnpj: string | null): string | null {
+  if (!cnpj) return null;
+  const digits = cnpj.replace(/\D/g, "");
+  if (digits.length !== 14) return digits || null;
+  return digits.replace(
+    /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+    "$1.$2.$3/$4-$5",
+  );
 }
 
 export function formatHotelAddress(hotel: {
@@ -86,6 +99,8 @@ function presentHotel(hotel: HotelRecord): AuthHotel {
     id: hotel.id,
     name: hotel.name,
     ownerName: hotel.ownerName,
+    cnpj: hotel.cnpj,
+    cnpjFormatted: formatCnpj(hotel.cnpj),
     phone: hotel.phone,
     logoUrl: hotel.logoUrl,
     address: {
@@ -117,9 +132,19 @@ export function verifyToken(token: string): TokenPayload {
   }
 }
 
+function normalizeCnpj(value: string | null | undefined): string | null {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.length !== 14) {
+    throw new AppError(400, "CNPJ must contain 14 digits");
+  }
+  return digits;
+}
+
 export async function registerHotel(input: {
   name: string;
   ownerName: string;
+  cnpj?: string | null;
   phone: string;
   password: string;
 }) {
@@ -127,6 +152,8 @@ export async function registerHotel(input: {
   if (phone.length < 10) {
     throw new AppError(400, "Phone must contain at least 10 digits");
   }
+
+  const cnpj = normalizeCnpj(input.cnpj);
 
   const existing = await prisma.hotel.findUnique({ where: { phone } });
   if (existing) {
@@ -138,6 +165,7 @@ export async function registerHotel(input: {
     data: {
       name: input.name.trim(),
       ownerName: input.ownerName.trim(),
+      cnpj,
       phone,
       passwordHash,
     },
@@ -174,6 +202,7 @@ export async function updateHotel(
   input: {
     name?: string;
     ownerName?: string;
+    cnpj?: string | null;
     phone?: string;
     password?: string;
     currentPassword?: string;
@@ -214,6 +243,11 @@ export async function updateHotel(
     }
   }
 
+  let cnpj = hotel.cnpj;
+  if (input.cnpj !== undefined) {
+    cnpj = normalizeCnpj(input.cnpj);
+  }
+
   let state = hotel.state;
   if (input.state !== undefined) {
     const normalized = emptyToNull(input.state)?.toUpperCase() ?? null;
@@ -244,6 +278,7 @@ export async function updateHotel(
       ...(input.ownerName !== undefined
         ? { ownerName: input.ownerName.trim() }
         : {}),
+      ...(input.cnpj !== undefined ? { cnpj } : {}),
       ...(input.phone !== undefined ? { phone } : {}),
       ...(input.password
         ? { passwordHash: await bcrypt.hash(input.password, 10) }

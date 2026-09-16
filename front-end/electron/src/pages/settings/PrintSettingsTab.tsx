@@ -124,6 +124,7 @@ export function PrintSettingsTab() {
         ...settings,
         contentWidthMm: contentAuto ? 0 : settings.contentWidthMm,
         hotelName: hotel?.name,
+        hotelCnpj: hotel?.cnpj ?? undefined,
       });
       setMessage(
         result.copies > 1

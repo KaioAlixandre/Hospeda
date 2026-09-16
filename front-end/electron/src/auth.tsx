@@ -29,6 +29,7 @@ type AuthContextValue = {
   updateHotel: (input: {
     name?: string;
     ownerName?: string;
+    cnpj?: string | null;
     phone?: string;
     password?: string;
     currentPassword?: string;
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: {
       name?: string;
       ownerName?: string;
+      cnpj?: string | null;
       phone?: string;
       password?: string;
       currentPassword?: string;

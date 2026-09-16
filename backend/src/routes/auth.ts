@@ -13,6 +13,7 @@ export const authRouter = Router();
 const registerSchema = z.object({
   name: z.string().min(2),
   ownerName: z.string().min(2),
+  cnpj: z.string().optional().nullable(),
   phone: z.string().min(8),
   password: z.string().min(6),
 });
@@ -26,6 +27,7 @@ const updateHotelSchema = z
   .object({
     name: z.string().min(2).optional(),
     ownerName: z.string().min(2).optional(),
+    cnpj: z.string().optional().nullable(),
     phone: z.string().min(8).optional(),
     password: z.string().min(6).optional(),
     currentPassword: z.string().min(1).optional(),
@@ -52,6 +54,7 @@ const updateHotelSchema = z
     (data) =>
       data.name !== undefined ||
       data.ownerName !== undefined ||
+      data.cnpj !== undefined ||
       data.phone !== undefined ||
       data.password !== undefined ||
       data.logoUrl !== undefined ||

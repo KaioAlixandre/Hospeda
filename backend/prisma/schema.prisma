@@ -54,6 +54,8 @@ model Hotel {
   name         String
   /// Nome do proprietário
   ownerName    String
+  /// CNPJ do estabelecimento (somente dígitos)
+  cnpj         String?  @db.VarChar(14)
   /// Telefone/WhatsApp (login)
   phone        String   @unique
   passwordHash String
