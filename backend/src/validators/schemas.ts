@@ -118,19 +118,35 @@ export const checkInSchema = z.object({
   confirm: z.boolean().default(true),
 });
 
+const chargeTypeEnum = z.enum([
+  "ROOM",
+  "MINIBAR",
+  "RESTAURANT",
+  "LAUNDRY",
+  "SERVICE",
+  "OTHER",
+  "DISCOUNT",
+]);
+
 export const createChargeSchema = z.object({
-  type: z.enum([
-    "ROOM",
-    "MINIBAR",
-    "RESTAURANT",
-    "LAUNDRY",
-    "SERVICE",
-    "OTHER",
-    "DISCOUNT",
-  ]),
+  type: chargeTypeEnum,
   description: z.string().min(1),
   amount: z.number().positive(),
 });
+
+export const updateChargeSchema = z
+  .object({
+    type: chargeTypeEnum.optional(),
+    description: z.string().min(1).optional(),
+    amount: z.number().positive().optional(),
+  })
+  .refine(
+    (data) =>
+      data.type !== undefined ||
+      data.description !== undefined ||
+      data.amount !== undefined,
+    { message: "At least one field must be provided" },
+  );
 
 export const createPaymentSchema = z.object({
   method: z.enum(["PIX", "CARD", "CASH"]),
