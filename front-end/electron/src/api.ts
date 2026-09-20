@@ -276,6 +276,13 @@ export const api = {
       id: string,
       body: { type: string; description: string; amount: number },
     ) => post(`/reservations/${id}/charges`, body),
+    updateCharge: (
+      id: string,
+      chargeId: string,
+      body: { type?: string; description?: string; amount?: number },
+    ) => patch(`/reservations/${id}/charges/${chargeId}`, body),
+    removeCharge: (id: string, chargeId: string) =>
+      del(`/reservations/${id}/charges/${chargeId}`),
   },
 
   payments: {

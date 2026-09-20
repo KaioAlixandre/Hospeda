@@ -14,6 +14,7 @@ import {
   Undo2,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
@@ -108,8 +109,28 @@ export function ReservationDetail({
   const [editGuests, setEditGuests] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [chargesOpen, setChargesOpen] = useState(false);
+  const [editingChargeId, setEditingChargeId] = useState<string | null>(null);
   const [extending, setExtending] = useState(false);
   const [extendCheckOut, setExtendCheckOut] = useState("");
+
+  function resetChargeForm() {
+    setEditingChargeId(null);
+    setChargeType("MINIBAR");
+    setChargeDescription("");
+    setChargeAmount("");
+  }
+
+  function startEditCharge(charge: {
+    id: string;
+    type: string;
+    description: string;
+    amount: string | number;
+  }) {
+    setEditingChargeId(charge.id);
+    setChargeType(charge.type === "ROOM" ? "OTHER" : charge.type);
+    setChargeDescription(charge.description);
+    setChargeAmount(String(charge.amount));
+  }
 
   const load = useCallback(async () => {
     try {
@@ -709,13 +730,18 @@ export function ReservationDetail({
       <Modal
         wide
         title={`Lançamentos · ${reservation.code}`}
-        onClose={() => setChargesOpen(false)}
+        onClose={() => {
+          resetChargeForm();
+          setChargesOpen(false);
+        }}
       >
+        <Feedback error={error} message={message} />
         <p className="muted charges-modal-intro">
-          Consumos, serviços e descontos da conta do hóspede.
+          Consumos, serviços e descontos da conta do hóspede. Diárias
+          automáticas não podem ser alteradas aqui.
         </p>
 
-        {isConfirmed ? (
+        {reservation.status !== "CANCELLED" ? (
           <div className="mini-form">
             <select
               value={chargeType}
@@ -740,54 +766,147 @@ export function ReservationDetail({
               value={chargeAmount}
               onChange={(e) => setChargeAmount(e.target.value)}
             />
-            <Button
-              icon={<Plus size={15} />}
-              loading={busy}
-              disabled={!chargeDescription || !chargeAmount}
-              onClick={() =>
-                run(async () => {
-                  await api.reservations.addCharge(reservation.id, {
-                    type: chargeType,
-                    description: chargeDescription,
-                    amount: Number(chargeAmount),
-                  });
-                  setChargeDescription("");
-                  setChargeAmount("");
-                }, "Lançamento adicionado.")
-              }
-            >
-              Lançar
-            </Button>
+            {editingChargeId ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon={<Pencil size={15} />}
+                  loading={busy}
+                  disabled={!chargeDescription || !chargeAmount}
+                  onClick={() =>
+                    run(async () => {
+                      await api.reservations.updateCharge(
+                        reservation.id,
+                        editingChargeId,
+                        {
+                          type: chargeType,
+                          description: chargeDescription,
+                          amount: Number(chargeAmount),
+                        },
+                      );
+                      resetChargeForm();
+                    }, "Lançamento atualizado.")
+                  }
+                >
+                  Salvar
+                </Button>
+                <Button
+                  icon={<X size={15} />}
+                  disabled={busy}
+                  onClick={resetChargeForm}
+                >
+                  Cancelar
+                </Button>
+              </>
+            ) : (
+              <Button
+                icon={<Plus size={15} />}
+                loading={busy}
+                disabled={
+                  !isConfirmed || !chargeDescription || !chargeAmount
+                }
+                onClick={() =>
+                  run(async () => {
+                    await api.reservations.addCharge(reservation.id, {
+                      type: chargeType,
+                      description: chargeDescription,
+                      amount: Number(chargeAmount),
+                    });
+                    resetChargeForm();
+                  }, "Lançamento adicionado.")
+                }
+              >
+                Lançar
+              </Button>
+            )}
           </div>
         ) : (
           <p className="muted">
-            Confirme a reserva para adicionar novos lançamentos.
+            Reserva cancelada — lançamentos não podem ser alterados.
           </p>
         )}
+
+        {!isConfirmed && reservation.status !== "CANCELLED" && !editingChargeId ? (
+          <p className="muted">
+            Confirme a reserva para adicionar novos lançamentos.
+          </p>
+        ) : null}
 
         {reservation.charges.length === 0 ? (
           <EmptyState message="Sem lançamentos." />
         ) : (
           <ul className="list compact">
-            {reservation.charges.map((charge) => (
-              <li key={charge.id}>
-                <div>
-                  <strong>{charge.description}</strong>
-                  <span className="muted">
-                    {CHARGE_LABEL[charge.type] ?? charge.type}
-                  </span>
-                </div>
-                <span>
-                  {charge.type === "DISCOUNT" ? "− " : ""}
-                  {brl(charge.amount)}
-                </span>
-              </li>
-            ))}
+            {reservation.charges.map((charge) => {
+              const isRoom = charge.type === "ROOM";
+              const canManage =
+                !isRoom && reservation.status !== "CANCELLED";
+              return (
+                <li key={charge.id}>
+                  <div>
+                    <strong>{charge.description}</strong>
+                    <span className="muted">
+                      {CHARGE_LABEL[charge.type] ?? charge.type}
+                      {isRoom ? " · automático" : ""}
+                    </span>
+                  </div>
+                  <div className="cell-actions">
+                    <span>
+                      {charge.type === "DISCOUNT" ? "− " : ""}
+                      {brl(charge.amount)}
+                    </span>
+                    {canManage ? (
+                      <>
+                        <Button
+                          icon={<Pencil size={14} />}
+                          loading={busy}
+                          disabled={editingChargeId === charge.id}
+                          onClick={() => startEditCharge(charge)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="danger"
+                          icon={<Trash2 size={14} />}
+                          loading={busy}
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                `Excluir o lançamento "${charge.description}"?`,
+                              )
+                            ) {
+                              return;
+                            }
+                            void run(async () => {
+                              await api.reservations.removeCharge(
+                                reservation.id,
+                                charge.id,
+                              );
+                              if (editingChargeId === charge.id) {
+                                resetChargeForm();
+                              }
+                            }, "Lançamento excluído.");
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
 
         <footer className="modal-foot">
-          <Button onClick={() => setChargesOpen(false)}>Fechar</Button>
+          <Button
+            onClick={() => {
+              resetChargeForm();
+              setChargesOpen(false);
+            }}
+          >
+            Fechar
+          </Button>
         </footer>
       </Modal>
     ) : null}

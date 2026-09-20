@@ -20,7 +20,10 @@ type DisplayStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-type StatusFilter = DisplayStatus | "ALL";
+type StatusFilter = DisplayStatus | "OPEN" | "ALL";
+
+/** Reservas ainda em andamento — visão padrão da página. */
+const OPEN_STATUSES: DisplayStatus[] = ["PENDING", "RESERVED", "STAYING"];
 
 const STATUS_META: Array<{
   value: DisplayStatus;
@@ -35,6 +38,7 @@ const STATUS_META: Array<{
 ];
 
 const EMPTY_MESSAGES: Record<StatusFilter, string> = {
+  OPEN: "Nenhuma reserva em aberto.",
   ALL: "Nenhuma reserva encontrada.",
   PENDING: "Nenhuma pré-reserva encontrada.",
   RESERVED: "Nenhuma reserva confirmada encontrada.",
@@ -77,7 +81,7 @@ function matchesSearch(reservation: Reservation, query: string): boolean {
 
 export function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [status, setStatus] = useState<StatusFilter>("ALL");
+  const [status, setStatus] = useState<StatusFilter>("OPEN");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,13 +126,20 @@ export function ReservationsPage() {
     return reservations.filter((reservation) => {
       if (!matchesSearch(reservation, query)) return false;
       if (status === "ALL") return true;
-      return displayStatus(reservation) === status;
+      const display = displayStatus(reservation);
+      if (status === "OPEN") return OPEN_STATUSES.includes(display);
+      return display === status;
     });
   }, [reservations, query, status]);
 
   const guestsTotal = useMemo(
     () => visible.reduce((sum, item) => sum + item.guests, 0),
     [visible],
+  );
+
+  const openTotal = useMemo(
+    () => OPEN_STATUSES.reduce((sum, value) => sum + summary[value], 0),
+    [summary],
   );
 
   return (
@@ -167,6 +178,14 @@ export function ReservationsPage() {
       <div className="status-strip room-status-legend">
         <button
           type="button"
+          className={`status-chip filter-chip${status === "OPEN" ? " active" : ""}`}
+          onClick={() => setStatus("OPEN")}
+        >
+          <span>em aberto</span>
+          <strong>{openTotal}</strong>
+        </button>
+        <button
+          type="button"
           className={`status-chip filter-chip${status === "ALL" ? " active" : ""}`}
           onClick={() => setStatus("ALL")}
         >
@@ -184,7 +203,7 @@ export function ReservationsPage() {
             }`}
             onClick={() =>
               setStatus((current) =>
-                current === meta.value ? "ALL" : meta.value,
+                current === meta.value ? "OPEN" : meta.value,
               )
             }
           >
