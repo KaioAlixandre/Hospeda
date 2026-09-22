@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { API_BASE_URL, isInsecureApiUrl } from "../config";
 import { Button, Feedback, Field, Loading } from "../components/ui";
 import { useAuth } from "../auth";
 
@@ -11,6 +12,21 @@ export function AuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const canEditApi = Boolean(window.hospeda?.apiConfig?.save);
+  const [apiUrl, setApiUrl] = useState(API_BASE_URL);
+  const [apiEditable, setApiEditable] = useState(canEditApi);
+  const [apiBusy, setApiBusy] = useState(false);
+  const [apiMessage, setApiMessage] = useState<string | null>(null);
+  const [showApiConfig, setShowApiConfig] = useState(false);
+
+  useEffect(() => {
+    if (!window.hospeda?.apiConfig?.get) return;
+    void window.hospeda.apiConfig.get().then((cfg) => {
+      setApiUrl(cfg.apiBaseUrl);
+      setApiEditable(cfg.editable);
+    });
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -26,6 +42,22 @@ export function AuthPage() {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveApiUrl(event: FormEvent) {
+    event.preventDefault();
+    if (!window.hospeda?.apiConfig?.save || !apiEditable) return;
+    setApiBusy(true);
+    setApiMessage(null);
+    setError(null);
+    try {
+      await window.hospeda.apiConfig.save(apiUrl);
+      setApiMessage("Endereço salvo neste computador. Recarregando…");
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (err) {
+      setError((err as Error).message);
+      setApiBusy(false);
     }
   }
 
@@ -75,7 +107,7 @@ export function AuthPage() {
             : "Crie a conta do seu estabelecimento para começar."}
         </p>
 
-        <Feedback error={error} />
+        <Feedback error={error} message={apiMessage} />
 
         <form className="auth-form" onSubmit={submit}>
           {mode === "register" ? (
@@ -123,6 +155,51 @@ export function AuthPage() {
             {mode === "login" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
+
+        {canEditApi ? (
+          <div className="auth-api-config">
+            <button
+              type="button"
+              className="auth-api-toggle"
+              onClick={() => setShowApiConfig((v) => !v)}
+            >
+              {showApiConfig ? "Ocultar servidor" : "Alterar servidor…"}
+            </button>
+
+            {showApiConfig ? (
+              <form className="auth-api-form" onSubmit={(e) => void saveApiUrl(e)}>
+                <p className="muted">
+                  Em uso: {API_BASE_URL}. Só precisa mudar se o servidor
+                  mudar — o valor fica salvo neste PC.
+                </p>
+                {isInsecureApiUrl(apiUrl) ? (
+                  <p className="muted">
+                    Aviso: HTTP fora de localhost — preferível usar HTTPS.
+                  </p>
+                ) : null}
+                <Field label="URL da API">
+                  <input
+                    type="url"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    placeholder="https://api.seudominio.com.br"
+                    required
+                    disabled={!apiEditable || apiBusy}
+                  />
+                </Field>
+                {!apiEditable ? (
+                  <p className="muted">
+                    Definido por HOSPEDA_API_URL — não editável aqui.
+                  </p>
+                ) : (
+                  <Button type="submit" loading={apiBusy}>
+                    Salvar neste computador
+                  </Button>
+                )}
+              </form>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

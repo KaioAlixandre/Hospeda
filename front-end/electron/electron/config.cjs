@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_API_URL = "http://localhost:3333";
+const DEFAULT_API_URL = "http://216.22.5.245:3333";
 
 function isLocalHost(hostname) {
   return (
