@@ -1,14 +1,18 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-let apiBaseUrl = "http://216.22.5.245:3333";
+let apiConfig = { apiBaseUrl: "", source: "default", insecure: false };
 try {
-  apiBaseUrl = require("./config.cjs").apiBaseUrl || apiBaseUrl;
+  apiConfig = ipcRenderer.sendSync("api:get-config") || apiConfig;
 } catch (_) {
-  // fallback acima
+  // mantém o objeto vazio; a tela avisa que a API não está configurada
 }
 
 contextBridge.exposeInMainWorld("hospeda", {
-  apiBaseUrl,
+  apiBaseUrl: apiConfig.apiBaseUrl,
+  apiConfig: {
+    get: () => ipcRenderer.invoke("api:get-config-async"),
+    save: (url) => ipcRenderer.invoke("api:save-config", url),
+  },
   platform: process.platform,
   isElectron: true,
   print: {

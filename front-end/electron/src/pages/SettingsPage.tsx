@@ -13,6 +13,7 @@ import {
   QrCode,
   RefreshCw,
   Save,
+  Server,
   Smartphone,
   Trash2,
   Unplug,
@@ -33,8 +34,9 @@ import { useAuth } from "../auth";
 import { Button, Feedback, Loading } from "../components/ui";
 import { cnpjMask } from "../lib/format";
 import { PrintSettingsTab } from "./settings/PrintSettingsTab";
+import { ServerSettingsTab } from "./settings/ServerSettingsTab";
 
-type SettingsTab = "hotel" | "whatsapp" | "print";
+type SettingsTab = "hotel" | "whatsapp" | "print" | "server";
 
 const TABS: Array<{
   id: SettingsTab;
@@ -60,6 +62,12 @@ const TABS: Array<{
     shortLabel: "Impressão",
     icon: <Printer size={16} />,
   },
+  {
+    id: "server",
+    label: "Servidor",
+    shortLabel: "Servidor",
+    icon: <Server size={16} />,
+  },
 ];
 
 export function SettingsPage() {
@@ -70,7 +78,7 @@ export function SettingsPage() {
       <header className="settings-page-header">
         <h1>Configurações</h1>
         <p className="muted">
-          Dados do estabelecimento, WhatsApp e impressão de reservas.
+          Dados do estabelecimento, WhatsApp, impressão e servidor da API.
         </p>
       </header>
 
@@ -106,6 +114,7 @@ export function SettingsPage() {
           {activeTab === "hotel" ? <HotelSettingsTab /> : null}
           {activeTab === "whatsapp" ? <WhatsAppSettings /> : null}
           {activeTab === "print" ? <PrintSettingsTab /> : null}
+          {activeTab === "server" ? <ServerSettingsTab /> : null}
         </div>
       </div>
     </section>

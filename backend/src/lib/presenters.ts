@@ -6,6 +6,7 @@ import type {
   Room,
   RoomType,
 } from "../generated/prisma/client.js";
+import { addUtcDays, startOfHotelDay } from "./datetime.js";
 import { parseRoomSelection } from "./roomSelection.js";
 
 const ROOM_STATUS_LABEL: Record<string, string> = {
@@ -72,12 +73,6 @@ function startOfUtcDay(date: Date): Date {
   );
 }
 
-function addUtcDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
 /** Diárias já lançadas na conta (cobranças tipo ROOM). */
 export function billedRoomNightsFromCharges(
   charges: FolioCharge[],
@@ -105,11 +100,12 @@ export function computeBillableRoomNights(
   const maxNights = nightsBetween(checkIn, plannedOut);
 
   if (reservation.checkedOutAt) {
-    const actualOut = startOfUtcDay(reservation.checkedOutAt);
+    // checkedOutAt é um instante: o dia da saída é o dia civil do hotel
+    const actualOut = startOfHotelDay(reservation.checkedOutAt);
     return Math.min(maxNights, Math.max(1, nightsBetween(checkIn, actualOut)));
   }
 
-  const today = startOfUtcDay(asOf);
+  const today = startOfHotelDay(asOf);
   const includeTonight = addUtcDays(today, 1);
   const nightsSoFar = nightsBetween(checkIn, includeTonight);
 

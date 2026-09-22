@@ -1,6 +1,6 @@
 {
   "name": "hospeda-electron",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "Hospeda — aplicativo desktop Electron",
   "author": "Hospeda",
@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently -k \"npm:dev:vite\" \"npm:dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 HOSPEDA_API_URL=http://216.22.5.245:3333 electron .",
+    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
     "build": "tsc -p tsconfig.node.json --noEmit && vite build",
     "start": "electron .",
     "dist": "npm run build && electron-builder",

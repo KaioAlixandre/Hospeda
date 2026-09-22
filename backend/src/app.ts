@@ -1,7 +1,14 @@
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
 import { requireAuth } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import {
+  apiLimiter,
+  authLimiter,
+  buildCorsOptions,
+  trustProxySetting,
+} from "./middleware/security.js";
 import { authRouter } from "./routes/auth.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { guestsRouter } from "./routes/guests.js";
@@ -22,13 +29,22 @@ import { whatsappRouter } from "./routes/whatsapp.js";
 export function createApp() {
   const app = express();
 
-  app.use(cors());
-  app.use(express.json());
+  // Necessário para o rate limit enxergar o IP real atrás de Caddy/Nginx.
+  app.set("trust proxy", trustProxySetting());
+
+  app.use(helmet());
+  app.use(cors(buildCorsOptions()));
+  app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "hospeda-api" });
   });
 
+  app.use(apiLimiter);
+
+  // Login e cadastro têm limite próprio, mais apertado.
+  app.use("/auth/login", authLimiter);
+  app.use("/auth/register", authLimiter);
   app.use("/auth", authRouter);
 
   app.use(requireAuth);

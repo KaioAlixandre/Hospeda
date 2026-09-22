@@ -17,12 +17,28 @@ type PrintSettingsResponse = {
   platform: string;
 };
 
+type ApiConfig = {
+  apiBaseUrl: string;
+  source: "env" | "file" | "default";
+  insecure: boolean;
+  editable: boolean;
+  configPath: string;
+};
+
 declare global {
   interface Window {
     hospeda?: {
       apiBaseUrl: string;
       platform: string;
       isElectron?: boolean;
+      apiConfig?: {
+        get: () => Promise<ApiConfig>;
+        save: (url: string) => Promise<{
+          apiBaseUrl: string;
+          insecure: boolean;
+          restartRequired: boolean;
+        }>;
+      };
       print?: {
         getSettings: () => Promise<PrintSettingsResponse>;
         saveSettings: (

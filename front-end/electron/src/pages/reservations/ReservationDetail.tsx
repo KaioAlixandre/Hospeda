@@ -735,7 +735,6 @@ export function ReservationDetail({
           setChargesOpen(false);
         }}
       >
-        <Feedback error={error} message={message} />
         <p className="muted charges-modal-intro">
           Consumos, serviços e descontos da conta do hóspede. Diárias
           automáticas não podem ser alteradas aqui.

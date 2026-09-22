@@ -3,6 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const { printReservation } = require("./print/print_reservation");
+const apiConfig = require("./config.cjs");
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
@@ -308,12 +309,52 @@ function registerPrintIpc() {
   });
 }
 
+function currentApiConfig() {
+  const resolved = apiConfig.resolveApiBaseUrl(app.getPath("userData"));
+  return {
+    ...resolved,
+    insecure: apiConfig.isInsecureRemote(resolved.apiBaseUrl),
+    editable: resolved.source !== "env",
+    configPath: apiConfig.settingsPath(app.getPath("userData")),
+  };
+}
+
+function registerApiConfigIpc() {
+  // Síncrono: o preload precisa do endereço antes da janela carregar.
+  ipcMain.on("api:get-config", (event) => {
+    event.returnValue = currentApiConfig();
+  });
+
+  ipcMain.handle("api:get-config-async", () => currentApiConfig());
+
+  ipcMain.handle("api:save-config", (_event, url) => {
+    const saved = apiConfig.saveApiBaseUrl(app.getPath("userData"), url);
+    return {
+      apiBaseUrl: saved,
+      insecure: apiConfig.isInsecureRemote(saved),
+      restartRequired: true,
+    };
+  });
+}
+
 app.whenReady().then(() => {
   if (process.platform === "win32") {
     app.setAppUserModelId("com.hospeda.app");
   }
 
+  registerApiConfigIpc();
   registerPrintIpc();
+
+  const resolved = currentApiConfig();
+  console.log(
+    `[Hospeda] API: ${resolved.apiBaseUrl} (origem: ${resolved.source})`,
+  );
+  if (resolved.insecure) {
+    console.warn(
+      "[Hospeda] AVISO: a API está em HTTP fora de localhost — credenciais trafegam em texto puro. Prefira HTTPS.",
+    );
+  }
+
   createWindow();
 
   app.on("activate", () => {

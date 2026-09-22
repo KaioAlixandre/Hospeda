@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { requireJwtSecret } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 
-const JWT_SECRET = process.env.JWT_SECRET?.trim() || "hospeda-dev-secret-change-me";
 const JWT_EXPIRES_IN = "365d";
 
 export type HotelAddress = {
@@ -117,14 +117,14 @@ function presentHotel(hotel: HotelRecord): AuthHotel {
 }
 
 function signToken(hotelId: string): string {
-  return jwt.sign({ hotelId } satisfies TokenPayload, JWT_SECRET, {
+  return jwt.sign({ hotelId } satisfies TokenPayload, requireJwtSecret(), {
     expiresIn: JWT_EXPIRES_IN,
   });
 }
 
 export function verifyToken(token: string): TokenPayload {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as TokenPayload;
+    const payload = jwt.verify(token, requireJwtSecret()) as TokenPayload;
     if (!payload.hotelId) throw new Error("Invalid token payload");
     return payload;
   } catch {

@@ -1,16 +1,9 @@
+import {
+  civilDateToUtcMidnight,
+  hotelDayIso,
+  hotelDayRange,
+} from "../lib/datetime.js";
 import { prisma } from "../lib/prisma.js";
-
-function startOfUtcDay(date = new Date()): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
 
 function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", {
@@ -28,11 +21,14 @@ const stayInclude = {
 } as const;
 
 export async function getAdminDashboard(hotelId: string, dateIso?: string) {
-  const day = dateIso
-    ? new Date(`${dateIso}T00:00:00.000Z`)
-    : startOfUtcDay(new Date());
-  const nextDay = addUtcDays(day, 1);
-  const dayLabel = day.toISOString().slice(0, 10);
+  // O "hoje" do hotel é o dia civil no fuso dele, não o dia UTC do servidor.
+  const dayLabel = dateIso ?? hotelDayIso();
+
+  // Para colunas @db.Date (checkInDate/checkOutDate): meia-noite UTC do dia.
+  const day = civilDateToUtcMidnight(dayLabel);
+
+  // Para colunas de data/hora: a janela absoluta do dia no fuso do hotel.
+  const { start: dayStart, end: dayEnd } = hotelDayRange(dayLabel);
 
   // Poucas queries em paralelo para não esgotar o pool
   const [
@@ -61,12 +57,12 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
       orderBy: { checkInDate: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { hotelId, checkedInAt: { gte: day, lt: nextDay } },
+      where: { hotelId, checkedInAt: { gte: dayStart, lt: dayEnd } },
       include: stayInclude,
       orderBy: { checkedInAt: "asc" },
     }),
     prisma.reservation.findMany({
-      where: { hotelId, checkedOutAt: { gte: day, lt: nextDay } },
+      where: { hotelId, checkedOutAt: { gte: dayStart, lt: dayEnd } },
       include: stayInclude,
       orderBy: { checkedOutAt: "asc" },
     }),
@@ -83,15 +79,15 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
       where: {
         reservation: { hotelId },
         OR: [
-          { status: "CONFIRMED", paidAt: { gte: day, lt: nextDay } },
-          { status: "REFUNDED", refundedAt: { gte: day, lt: nextDay } },
+          { status: "CONFIRMED", paidAt: { gte: dayStart, lt: dayEnd } },
+          { status: "REFUNDED", refundedAt: { gte: dayStart, lt: dayEnd } },
         ],
       },
     }),
     prisma.reservation.count({
       where: {
         hotelId,
-        createdAt: { gte: day, lt: nextDay },
+        createdAt: { gte: dayStart, lt: dayEnd },
         status: { not: "CANCELLED" },
       },
     }),
@@ -99,7 +95,7 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
       where: {
         hotelId,
         status: "CANCELLED",
-        updatedAt: { gte: day, lt: nextDay },
+        updatedAt: { gte: dayStart, lt: dayEnd },
       },
     }),
   ]);
