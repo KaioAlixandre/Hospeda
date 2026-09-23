@@ -71,7 +71,8 @@ export function cnpjMask(value: string): string {
     .replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, "$1.$2.$3/$4-$5");
 }
 
-export function cpfMask(value: string): string {
+export function cpfMask(value: string | null | undefined): string {
+  if (!value) return "—";
   const digits = value.replace(/\D/g, "").slice(0, 11);
   return digits
     .replace(/(\d{3})(\d)/, "$1.$2")
@@ -108,6 +109,18 @@ export function ptError(message: unknown): string {
 
   if (lower.includes("forbidden") || lower.includes("403")) {
     return "Você não tem permissão para esta ação.";
+  }
+
+  const isPlanRequired =
+    (message instanceof Error && message.name === "PlanRequiredError") ||
+    lower.includes("402") ||
+    lower.includes("payment required") ||
+    lower.includes("plan required");
+
+  if (isPlanRequired) {
+    return /plano/i.test(text)
+      ? text
+      : "Este recurso exige um plano superior. Veja Configurações → Plano.";
   }
 
   if (lower.includes("not found") || lower.includes("404")) {

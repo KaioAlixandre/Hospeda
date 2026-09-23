@@ -1,12 +1,15 @@
 import {
   Building2,
   CheckCircle2,
+  CreditCard,
   Eye,
   EyeOff,
   FileText,
+  Globe,
   Image,
   KeyRound,
   MapPin,
+  MessageCircle,
   MessageSquare,
   Phone,
   Printer,
@@ -33,10 +36,19 @@ import { api, type WhatsAppStatus } from "../api";
 import { useAuth } from "../auth";
 import { Button, Feedback, Loading } from "../components/ui";
 import { cnpjMask } from "../lib/format";
+import { openSalesWhatsApp } from "../lib/salesWhatsApp";
+import { CatalogSettingsTab } from "./settings/CatalogSettingsTab";
+import { PlanSettingsTab } from "./settings/PlanSettingsTab";
 import { PrintSettingsTab } from "./settings/PrintSettingsTab";
 import { ServerSettingsTab } from "./settings/ServerSettingsTab";
 
-type SettingsTab = "hotel" | "whatsapp" | "print" | "server";
+type SettingsTab =
+  | "hotel"
+  | "plan"
+  | "whatsapp"
+  | "catalog"
+  | "print"
+  | "server";
 
 const TABS: Array<{
   id: SettingsTab;
@@ -51,10 +63,22 @@ const TABS: Array<{
     icon: <Building2 size={16} />,
   },
   {
+    id: "plan",
+    label: "Plano",
+    shortLabel: "Plano",
+    icon: <CreditCard size={16} />,
+  },
+  {
     id: "whatsapp",
     label: "WhatsApp",
     shortLabel: "WhatsApp",
     icon: <MessageSquare size={16} />,
+  },
+  {
+    id: "catalog",
+    label: "Catálogo",
+    shortLabel: "Catálogo",
+    icon: <Globe size={16} />,
   },
   {
     id: "print",
@@ -78,7 +102,8 @@ export function SettingsPage() {
       <header className="settings-page-header">
         <h1>Configurações</h1>
         <p className="muted">
-          Dados do estabelecimento, WhatsApp, impressão e servidor da API.
+          Dados do estabelecimento, plano, WhatsApp, catálogo, impressão e
+          servidor da API.
         </p>
       </header>
 
@@ -112,7 +137,9 @@ export function SettingsPage() {
 
         <div className="settings-tab-panel">
           {activeTab === "hotel" ? <HotelSettingsTab /> : null}
+          {activeTab === "plan" ? <PlanSettingsTab /> : null}
           {activeTab === "whatsapp" ? <WhatsAppSettings /> : null}
+          {activeTab === "catalog" ? <CatalogSettingsTab /> : null}
           {activeTab === "print" ? <PrintSettingsTab /> : null}
           {activeTab === "server" ? <ServerSettingsTab /> : null}
         </div>
@@ -532,7 +559,59 @@ function HotelSettingsTab() {
   );
 }
 
+function WhatsAppPlanUpsell() {
+  const { hotel } = useAuth();
+
+  function handleUpgrade() {
+    const hotelName = hotel?.name ?? "meu hotel";
+    openSalesWhatsApp(
+      `Olá! Quero o plano Pro do Hospeda (WhatsApp) para o hotel ${hotelName}.`,
+    );
+  }
+
+  return (
+    <div role="tabpanel" className="settings-panel-content">
+      <h3 className="settings-panel-title">
+        <MessageSquare size={16} />
+        Integração com WhatsApp
+      </h3>
+      <p className="muted settings-panel-lead">
+        Confirmações automáticas para hóspedes e avisos de limpeza para
+        zeladores.
+      </p>
+
+      <div className="print-status-card plan-sales-card">
+        <strong>Disponível no plano Pro</strong>
+        <p className="muted">
+          Com o Pro você conecta o WhatsApp do hotel e envia confirmações de
+          reserva e alertas de limpeza automaticamente. Sem precisar lembrar
+          manualmente.
+        </p>
+        <p className="plan-sales-price">R$ 73/mês</p>
+        <div className="settings-form-actions">
+          <Button
+            variant="primary"
+            type="button"
+            icon={<MessageCircle size={16} />}
+            onClick={handleUpgrade}
+          >
+            Quero o plano Pro
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WhatsAppSettings() {
+  const { hotel } = useAuth();
+  if (!hotel?.subscription?.features?.messaging) {
+    return <WhatsAppPlanUpsell />;
+  }
+  return <WhatsAppConnectedSettings />;
+}
+
+function WhatsAppConnectedSettings() {
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);

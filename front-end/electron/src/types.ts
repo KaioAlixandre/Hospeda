@@ -111,7 +111,7 @@ export type Reservation = {
     id: string;
     name: string;
     phone: string | null;
-    cpf: string;
+    cpf: string | null;
     email: string | null;
   };
   roomType: RoomType;
@@ -144,7 +144,7 @@ export type Guest = {
   id: string;
   name: string;
   phone: string | null;
-  cpf: string;
+  cpf: string | null;
   email: string | null;
   address: {
     street: string | null;

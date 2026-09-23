@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("hospeda", {
     get: () => ipcRenderer.invoke("api:get-config-async"),
     save: (url) => ipcRenderer.invoke("api:save-config", url),
   },
+  openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   platform: process.platform,
   isElectron: true,
   print: {

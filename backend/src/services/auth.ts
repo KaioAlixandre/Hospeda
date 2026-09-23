@@ -1,7 +1,9 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { requireJwtSecret } from "../lib/env.js";
+import { presentPlan, type PlanCode } from "../lib/plans.js";
 import { prisma } from "../lib/prisma.js";
+import { allocateUniqueSlug } from "../lib/slug.js";
 import { AppError } from "../middleware/errorHandler.js";
 
 const JWT_EXPIRES_IN = "365d";
@@ -26,6 +28,11 @@ export type AuthHotel = {
   phone: string;
   logoUrl: string | null;
   address: HotelAddress;
+  subscription: ReturnType<typeof presentPlan>;
+  slug: string | null;
+  catalogEnabled: boolean;
+  catalogHeadline: string | null;
+  catalogRules: string | null;
 };
 
 type TokenPayload = {
@@ -46,6 +53,14 @@ type HotelRecord = {
   city: string | null;
   state: string | null;
   zipCode: string | null;
+  plan: PlanCode;
+  planStatus: "ACTIVE" | "PAST_DUE" | "CANCELLED";
+  planPaidUntil: Date | null;
+  slug: string | null;
+  catalogEnabled: boolean;
+  catalogHeadline: string | null;
+  catalogRules: string | null;
+  stripeSubscriptionId: string | null;
 };
 
 function normalizePhone(phone: string): string {
@@ -113,6 +128,11 @@ function presentHotel(hotel: HotelRecord): AuthHotel {
       zipCode: hotel.zipCode,
       formatted: formatHotelAddress(hotel),
     },
+    subscription: presentPlan(hotel),
+    slug: hotel.slug,
+    catalogEnabled: hotel.catalogEnabled,
+    catalogHeadline: hotel.catalogHeadline,
+    catalogRules: hotel.catalogRules,
   };
 }
 
@@ -161,6 +181,7 @@ export async function registerHotel(input: {
   }
 
   const passwordHash = await bcrypt.hash(input.password, 10);
+  const slug = await allocateUniqueSlug(input.name.trim());
   const hotel = await prisma.hotel.create({
     data: {
       name: input.name.trim(),
@@ -168,6 +189,7 @@ export async function registerHotel(input: {
       cnpj,
       phone,
       passwordHash,
+      slug,
     },
   });
 

@@ -24,6 +24,11 @@ enum ReservationStatus {
   COMPLETED
 }
 
+enum ReservationSource {
+  DESK
+  ONLINE
+}
+
 enum ChargeType {
   ROOM
   MINIBAR
@@ -45,6 +50,19 @@ enum PaymentStatus {
   CONFIRMED
   CANCELLED
   REFUNDED
+}
+
+enum Plan {
+  SIMPLES
+  PRO
+  PLUS
+}
+
+/// Situação da assinatura (hoje controlada à mão)
+enum PlanStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
 }
 
 /// Conta do hotel (login do proprietário)
@@ -72,6 +90,26 @@ model Hotel {
   messagingInstanceId  String?
   messagingToken       String?
   messagingClientToken String?
+
+  plan          Plan       @default(SIMPLES)
+  planStatus    PlanStatus @default(ACTIVE)
+  /// Até quando o plano está pago (null = sem vencimento, ex.: cortesia)
+  planPaidUntil DateTime?  @db.Date
+  /// Anotação interna: "pagou PIX 05/10", "teste 15 dias"
+  planNotes     String?    @db.Text
+
+  /// IDs Stripe (assinatura online)
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+
+  /// Identificador do hotel no link público: /h/<slug>
+  slug            String?  @unique
+  /// Catálogo no ar (o hotel liga/desliga; só vale no PLUS)
+  catalogEnabled  Boolean  @default(false)
+  /// Texto de boas-vindas e regras que aparecem no site
+  catalogHeadline String?  @db.Text
+  catalogRules    String?  @db.Text
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -80,8 +118,29 @@ model Hotel {
   guests       Guest[]
   reservations Reservation[]
   zeladores    Zelador[]
+  planEvents   PlanEvent[]
 
   @@index([name])
+}
+
+/// Histórico de mudança de plano
+model PlanEvent {
+  id         String      @id @default(cuid())
+  hotelId    String
+  fromPlan   Plan?
+  toPlan     Plan
+  fromStatus PlanStatus?
+  toStatus   PlanStatus
+  paidUntil  DateTime?   @db.Date
+  note       String?     @db.Text
+  /// Quem fez a mudança: "admin" hoje, "webhook:asaas" amanhã
+  actor      String
+  createdAt  DateTime    @default(now())
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@index([createdAt])
 }
 
 /// Tipo de quarto (solteiro, casal, família…)
@@ -141,8 +200,8 @@ model Guest {
   hotelId      String
   name         String
   phone        String?
-  /// CPF (somente dígitos, único por hotel)
-  cpf          String
+  /// CPF (somente dígitos, único por hotel; opcional até o check-in)
+  cpf          String?
   email        String?
   street       String?
   number       String?
@@ -176,6 +235,9 @@ model Reservation {
   /// Quantidade de hóspedes
   guests       Int               @default(1)
   status       ReservationStatus @default(PENDING)
+  source       ReservationSource @default(DESK)
+  /// Reserva online cai sozinha se o hotel não confirmar até aqui
+  expiresAt    DateTime?
   nightlyRate  Decimal           @db.Decimal(10, 2)
   /// Quartos selecionados [{ roomId, roomTypeId, guests, nightlyRate, ... }]
   roomSelection Json             @default("[]")
@@ -198,6 +260,7 @@ model Reservation {
   @@index([roomId])
   @@index([status])
   @@index([checkInDate, checkOutDate])
+  @@index([expiresAt])
 }
 
 model FolioCharge {

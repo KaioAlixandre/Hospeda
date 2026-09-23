@@ -1,3 +1,4 @@
+import { Prisma } from "../generated/prisma/client.js";
 import {
   buildBill,
   computeBillableRoomNights,
@@ -249,6 +250,13 @@ export async function findAvailableRooms(params: {
   };
 }
 
+async function lockRooms(roomIds: string[], tx: TxClient) {
+  if (roomIds.length === 0) return;
+  await tx.$queryRaw`
+    SELECT id FROM Room WHERE id IN (${Prisma.join(roomIds)}) FOR UPDATE
+  `;
+}
+
 export async function createReservation(input: {
   hotelId: string;
   guestId: string;
@@ -259,6 +267,8 @@ export async function createReservation(input: {
   nightlyRate?: number;
   notes?: string;
   status?: "PENDING" | "CONFIRMED";
+  source?: "DESK" | "ONLINE";
+  expiresAt?: Date | null;
 }) {
   const checkIn = toDateOnly(input.checkInDate);
   const checkOut = toDateOnly(input.checkOutDate);
@@ -294,8 +304,30 @@ export async function createReservation(input: {
   const nightlyRate = input.nightlyRate ?? selectedOption.totalNightlyRate;
   const primaryRoom = selectedOption.rooms[0]!;
   const status = input.status ?? "PENDING";
+  const source = input.source ?? "DESK";
 
   const created = await prisma.$transaction(async (tx) => {
+    await lockRooms(input.roomIds, tx);
+
+    const overlapping = await tx.reservation.findMany({
+      where: {
+        hotelId: input.hotelId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        checkInDate: { lt: checkOut },
+        checkOutDate: { gt: checkIn },
+      },
+      select: { roomId: true, roomSelection: true },
+    });
+    const blocked = new Set<string>();
+    for (const row of overlapping) {
+      for (const id of reservationRoomIds(row)) blocked.add(id);
+    }
+    for (const roomId of input.roomIds) {
+      if (blocked.has(roomId)) {
+        throw new AppError(409, "Room already reserved for overlapping dates");
+      }
+    }
+
     if (status === "CONFIRMED") {
       await holdRooms(input.roomIds, tx);
     }
@@ -311,6 +343,8 @@ export async function createReservation(input: {
         checkOutDate: checkOut,
         guests: input.guests,
         status,
+        source,
+        expiresAt: input.expiresAt ?? null,
         nightlyRate,
         roomSelection,
         notes: input.notes,
@@ -388,6 +422,7 @@ export async function confirmReservation(
   }
 
   const updated = await prisma.$transaction(async (tx) => {
+    await lockRooms(roomIds, tx);
     await holdRooms(roomIds, tx);
 
     return tx.reservation.update({
@@ -395,6 +430,7 @@ export async function confirmReservation(
       data: {
         status: "CONFIRMED",
         roomId: roomIds[0],
+        expiresAt: null,
       },
       include: {
         guest: true,
@@ -971,5 +1007,39 @@ export async function deleteReservation(hotelId: string, reservationId: string) 
   await prisma.$transaction(async (tx) => {
     await tx.reservation.delete({ where: { id: reservationId } });
   });
+}
+
+/** Cancela reservas ONLINE pendentes cujo expiresAt já passou. */
+export async function expireOnlineReservations(): Promise<number> {
+  const now = new Date();
+  const expired = await prisma.reservation.findMany({
+    where: {
+      status: "PENDING",
+      source: "ONLINE",
+      expiresAt: { lte: now },
+    },
+    select: {
+      id: true,
+      hotelId: true,
+      roomId: true,
+      roomSelection: true,
+    },
+  });
+
+  let count = 0;
+  for (const reservation of expired) {
+    await prisma.$transaction(async (tx) => {
+      const roomIds = reservationRoomIds(reservation);
+      await tx.reservation.update({
+        where: { id: reservation.id },
+        data: { status: "CANCELLED", expiresAt: null },
+      });
+      if (roomIds.length > 0) {
+        await releaseRooms(reservation.hotelId, roomIds, reservation.id, tx);
+      }
+    });
+    count += 1;
+  }
+  return count;
 }
 

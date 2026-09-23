@@ -2,9 +2,12 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { requireFeature } from "../middleware/plan.js";
 import * as sendApi from "../services/sendApi.js";
 
 export const whatsappRouter = Router();
+
+whatsappRouter.use(requireFeature("messaging"));
 
 type HotelMessaging = {
   id: string;

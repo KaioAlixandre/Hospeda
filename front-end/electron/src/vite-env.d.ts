@@ -39,6 +39,7 @@ declare global {
           restartRequired: boolean;
         }>;
       };
+      openExternal?: (url: string) => Promise<{ ok: boolean }>;
       print?: {
         getSettings: () => Promise<PrintSettingsResponse>;
         saveSettings: (

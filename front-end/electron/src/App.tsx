@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
+import { PlanExpiryBanner } from "./components/PlanExpiryBanner";
 import { Button } from "./components/ui";
 import { AuthLoading, AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -78,6 +79,7 @@ export function App() {
       </aside>
 
       <main className="content">
+        <PlanExpiryBanner />
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/rooms" element={<RoomsPage />} />

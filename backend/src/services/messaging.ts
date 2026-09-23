@@ -1,11 +1,13 @@
 import { prisma } from "../lib/prisma.js";
+import { hasFeature } from "../lib/plans.js";
 
 export type MessageNotification = {
   sent: boolean;
-  skipped?: "not_configured" | "no_phone" | "api_error";
+  skipped?: "not_configured" | "no_phone" | "api_error" | "plan";
   channel?: "whatsapp";
   to?: string;
   reason?: string;
+  message?: string;
 };
 
 export type BulkMessageNotification = {
@@ -266,6 +268,26 @@ function buildCleaningMessage(
 export async function notifyReservationConfirmed(
   stay: ConfirmedStay,
 ): Promise<MessageNotification> {
+  const hotel = await prisma.hotel.findUnique({ where: { id: stay.hotelId } });
+  if (
+    hotel &&
+    !hasFeature(
+      {
+        plan: hotel.plan,
+        planStatus: hotel.planStatus,
+        planPaidUntil: hotel.planPaidUntil,
+      },
+      "messaging",
+    )
+  ) {
+    return {
+      sent: false,
+      skipped: "plan",
+      reason: "plan",
+      message: "Envio de mensagens disponível no plano Pro",
+    };
+  }
+
   const phone = toWhatsAppPhone(stay.guest.phone);
   if (!phone) {
     return {
@@ -275,7 +297,6 @@ export async function notifyReservationConfirmed(
     };
   }
 
-  const hotel = await prisma.hotel.findUnique({ where: { id: stay.hotelId } });
   const hotelName = hotel?.name ?? propertyName();
   const address = hotel
     ? [
@@ -307,16 +328,47 @@ export async function notifyZeladoresRoomCleaning(
   hotelId: string,
   rooms: CleaningRoom[],
 ): Promise<BulkMessageNotification> {
-  const [zeladores, hotel] = await Promise.all([
-    prisma.zelador.findMany({
-      where: { hotelId },
-      orderBy: { name: "asc" },
-    }),
-    prisma.hotel.findUnique({
-      where: { id: hotelId },
-      select: { name: true },
-    }),
-  ]);
+  const hotel = await prisma.hotel.findUnique({
+    where: { id: hotelId },
+    select: {
+      name: true,
+      plan: true,
+      planStatus: true,
+      planPaidUntil: true,
+    },
+  });
+
+  if (
+    hotel &&
+    !hasFeature(
+      {
+        plan: hotel.plan,
+        planStatus: hotel.planStatus,
+        planPaidUntil: hotel.planPaidUntil,
+      },
+      "messaging",
+    )
+  ) {
+    return {
+      sent: 0,
+      failed: 0,
+      skipped: 1,
+      total: 0,
+      recipients: [
+        {
+          sent: false,
+          skipped: "plan",
+          reason: "plan",
+          message: "Envio de mensagens disponível no plano Pro",
+        },
+      ],
+    };
+  }
+
+  const zeladores = await prisma.zelador.findMany({
+    where: { hotelId },
+    orderBy: { name: "asc" },
+  });
 
   if (zeladores.length === 0) {
     return { sent: 0, failed: 0, skipped: 0, total: 0, recipients: [] };
@@ -347,12 +399,82 @@ export async function notifyZeladoresRoomCleaning(
 
   return {
     sent: recipients.filter((item) => item.sent).length,
-    failed: recipients.filter((item) => item.skipped === "api_error").length,
+    failed: recipients.filter((item) => !item.sent && item.skipped === "api_error")
+      .length,
     skipped: recipients.filter(
-      (item) =>
-        item.skipped === "no_phone" || item.skipped === "not_configured",
+      (item) => !item.sent && item.skipped !== "api_error",
     ).length,
-    total: zeladores.length,
+    total: recipients.length,
     recipients,
   };
+}
+
+export async function notifyHotelNewOnlineReservation(input: {
+  hotelId: string;
+  hotelPhone: string;
+  hotelName: string;
+  code: string;
+  guestName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  roomTypeName: string;
+}): Promise<MessageNotification> {
+  const phone = toWhatsAppPhone(input.hotelPhone);
+  if (!phone) {
+    return { sent: false, skipped: "no_phone", reason: "Hotel has no phone" };
+  }
+
+  const message = [
+    `📩 Novo pedido de reserva online`,
+    "",
+    `Código: ${input.code}`,
+    `Hóspede: ${input.guestName}`,
+    `Tipo: ${input.roomTypeName}`,
+    `Período: ${input.checkInDate} → ${input.checkOutDate}`,
+    "",
+    `Confirme no Hospeda em até 24h.`,
+    `— ${input.hotelName}`,
+  ].join("\n");
+
+  return sendTextMessage(
+    phone,
+    message,
+    `online reservation ${input.code} → hotel`,
+    input.hotelId,
+  );
+}
+
+export async function notifyGuestOnlineReservationReceived(input: {
+  hotelId: string;
+  hotelName: string;
+  hotelPhone: string;
+  guestPhone: string | null;
+  guestName: string;
+  code: string;
+}): Promise<MessageNotification> {
+  const phone = toWhatsAppPhone(input.guestPhone);
+  if (!phone) {
+    return { sent: false, skipped: "no_phone", reason: "Guest has no phone" };
+  }
+
+  const message = [
+    `Olá, ${input.guestName}! 👋`,
+    "",
+    `Recebemos seu pedido de reserva, código ${input.code}.`,
+    "",
+    `⚠️ Isso ainda não é uma reserva confirmada.`,
+    `A ${input.hotelName} confirma em até 24 horas.`,
+    "",
+    input.hotelPhone
+      ? `Dúvidas: WhatsApp ${input.hotelPhone}`
+      : `Em caso de dúvida, fale com a pousada.`,
+    `— ${input.hotelName}`,
+  ].join("\n");
+
+  return sendTextMessage(
+    phone,
+    message,
+    `online reservation ${input.code} → guest`,
+    input.hotelId,
+  );
 }

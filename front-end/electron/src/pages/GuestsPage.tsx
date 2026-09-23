@@ -719,13 +719,12 @@ function GuestForm({
             required
           />
         </Field>
-        <Field label="CPF" required hint="Somente números">
+        <Field label="CPF" optional hint="Preencher até o check-in">
           <input
             value={form.cpf}
             onChange={(e) => set("cpf", e.target.value)}
             placeholder="12345678901"
             disabled={Boolean(initial)}
-            required
           />
         </Field>
         <Field label="Telefone" required hint="Com DDD">
@@ -794,8 +793,7 @@ function GuestForm({
           disabled={
             !form.name.trim() ||
             !form.phone.trim() ||
-            form.phone.replace(/\D/g, "").length < 8 ||
-            (!initial && !form.cpf.trim())
+            form.phone.replace(/\D/g, "").length < 8
           }
           onClick={submit}
         >

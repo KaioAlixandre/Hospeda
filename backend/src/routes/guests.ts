@@ -88,16 +88,18 @@ guestsRouter.post("/", async (req, res, next) => {
     const hotelId = hotelIdFrom(req);
     const data = createGuestSchema.parse(req.body);
 
-    const duplicate = await prisma.guest.findFirst({
-      where: { hotelId, cpf: data.cpf },
-      select: { id: true },
-    });
-    if (duplicate) {
-      throw new AppError(409, "Já existe um hóspede com este CPF neste hotel.");
+    if (data.cpf) {
+      const duplicate = await prisma.guest.findFirst({
+        where: { hotelId, cpf: data.cpf },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new AppError(409, "Já existe um hóspede com este CPF neste hotel.");
+      }
     }
 
     const guest = await prisma.guest.create({
-      data: { ...data, hotelId },
+      data: { ...data, hotelId, cpf: data.cpf ?? null },
       include: guestInclude,
     });
     res.status(201).json(presentGuest(guest));

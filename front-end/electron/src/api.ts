@@ -14,6 +14,34 @@ import { API_BASE_URL } from "./config";
 const TOKEN_KEY = "hospeda_token";
 const HOTEL_KEY = "hospeda_hotel";
 
+export type PlanCode = "SIMPLES" | "PRO" | "PLUS";
+export type PlanFeature = "messaging" | "catalog";
+
+export type PlanCatalogEntry = {
+  label: string;
+  priceCents: number;
+  features: PlanFeature[];
+};
+
+export type HotelSubscription = {
+  plan: PlanCode;
+  effectivePlan: PlanCode;
+  downgraded: boolean;
+  status: "ACTIVE" | "PAST_DUE" | "CANCELLED";
+  paidUntil: string | null;
+  label: string;
+  priceLabel: string;
+  catalog: Record<PlanCode, PlanCatalogEntry>;
+  features: {
+    messaging: boolean;
+    catalog: boolean;
+  };
+  billing: {
+    stripeEnabled: boolean;
+    hasSubscription: boolean;
+  };
+};
+
 export type AuthHotel = {
   id: string;
   name: string;
@@ -32,7 +60,20 @@ export type AuthHotel = {
     zipCode: string | null;
     formatted: string | null;
   };
+  subscription: HotelSubscription;
+  slug: string | null;
+  catalogEnabled: boolean;
+  catalogHeadline: string | null;
+  catalogRules: string | null;
 };
+
+export class PlanRequiredError extends Error {
+  status = 402;
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanRequiredError";
+  }
+}
 
 export type AuthSession = {
   token: string;
@@ -89,7 +130,10 @@ async function request<T>(
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.error ?? `Falha na requisição (${response.status})`);
+    const message =
+      payload?.error ?? `Falha na requisição (${response.status})`;
+    if (response.status === 402) throw new PlanRequiredError(message);
+    throw new Error(message);
   }
 
   if (response.status === 204) return undefined as T;
@@ -124,7 +168,10 @@ async function uploadFormData<T>(
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.error ?? `Falha na requisição (${response.status})`);
+    const message =
+      payload?.error ?? `Falha na requisição (${response.status})`;
+    if (response.status === 402) throw new PlanRequiredError(message);
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
@@ -332,6 +379,43 @@ export const api = {
     removeInstance: () =>
       request<WhatsAppStatus>("/whatsapp/instance", { method: "DELETE" }),
   },
+
+  catalog: {
+    get: () => get<CatalogSettings>("/catalog"),
+    update: (body: {
+      catalogEnabled?: boolean;
+      catalogHeadline?: string | null;
+      catalogRules?: string | null;
+    }) =>
+      patch<{
+        catalogEnabled: boolean;
+        slug: string | null;
+        publicUrl: string | null;
+        headline: string | null;
+        rules: string | null;
+      }>("/catalog", body),
+  },
+
+  billing: {
+    status: () =>
+      get<{
+        enabled: boolean;
+        plans: { SIMPLES: boolean; PRO: boolean; PLUS: boolean };
+      }>("/billing/status"),
+    checkout: (plan: PlanCode) =>
+      post<{ url: string }>("/billing/checkout", { plan }),
+    portal: () => post<{ url: string }>("/billing/portal", {}),
+  },
+};
+
+export type CatalogSettings = {
+  catalogEnabled: boolean;
+  slug: string | null;
+  publicUrl: string | null;
+  headline: string | null;
+  rules: string | null;
+  roomTypesWithoutPhotos: Array<{ id: string; name: string }>;
+  canEnable: boolean;
 };
 
 export type WhatsAppStatus = {

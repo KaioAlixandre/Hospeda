@@ -1,7 +1,7 @@
-const MIN_JWT_SECRET_LENGTH = 32;
+const MIN_SECRET_LENGTH = 32;
 
 /** Segredos que já circularam em exemplos/configs e não podem ir para produção. */
-const BLOCKED_JWT_SECRETS = new Set([
+const BLOCKED_SECRETS = new Set([
   "change-me-in-production",
   "hospeda-dev-secret-change-me",
   "secret",
@@ -19,32 +19,45 @@ const HOW_TO_GENERATE =
   'Gere um valor forte com: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"';
 
 let cachedJwtSecret: string | null = null;
+let cachedAdminToken: string | null = null;
 
-export function requireJwtSecret(): string {
-  if (cachedJwtSecret) return cachedJwtSecret;
-
-  const secret = process.env.JWT_SECRET?.trim();
+function requireStrongSecret(envName: string, value: string | undefined): string {
+  const secret = value?.trim();
 
   if (!secret) {
     throw new EnvError(
-      `JWT_SECRET não definido. A API não sobe sem ele. ${HOW_TO_GENERATE}`,
+      `${envName} não definido. A API não sobe sem ele. ${HOW_TO_GENERATE}`,
     );
   }
 
-  if (BLOCKED_JWT_SECRETS.has(secret.toLowerCase())) {
+  if (BLOCKED_SECRETS.has(secret.toLowerCase())) {
     throw new EnvError(
-      `JWT_SECRET está com um valor de exemplo público e precisa ser trocado. ${HOW_TO_GENERATE}`,
+      `${envName} está com um valor de exemplo público e precisa ser trocado. ${HOW_TO_GENERATE}`,
     );
   }
 
-  if (secret.length < MIN_JWT_SECRET_LENGTH) {
+  if (secret.length < MIN_SECRET_LENGTH) {
     throw new EnvError(
-      `JWT_SECRET precisa ter pelo menos ${MIN_JWT_SECRET_LENGTH} caracteres (atual: ${secret.length}). ${HOW_TO_GENERATE}`,
+      `${envName} precisa ter pelo menos ${MIN_SECRET_LENGTH} caracteres (atual: ${secret.length}). ${HOW_TO_GENERATE}`,
     );
   }
 
-  cachedJwtSecret = secret;
+  return secret;
+}
+
+export function requireJwtSecret(): string {
+  if (cachedJwtSecret) return cachedJwtSecret;
+  cachedJwtSecret = requireStrongSecret("JWT_SECRET", process.env.JWT_SECRET);
   return cachedJwtSecret;
+}
+
+export function requireAdminTokenValue(): string {
+  if (cachedAdminToken) return cachedAdminToken;
+  cachedAdminToken = requireStrongSecret(
+    "ADMIN_TOKEN",
+    process.env.ADMIN_TOKEN,
+  );
+  return cachedAdminToken;
 }
 
 function requireDatabaseEnv(): void {
@@ -63,7 +76,11 @@ function requireDatabaseEnv(): void {
 export function validateEnv(): void {
   const problems: string[] = [];
 
-  for (const check of [requireJwtSecret, requireDatabaseEnv]) {
+  for (const check of [
+    requireJwtSecret,
+    requireAdminTokenValue,
+    requireDatabaseEnv,
+  ]) {
     try {
       check();
     } catch (err) {

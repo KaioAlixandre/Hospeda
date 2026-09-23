@@ -37,14 +37,15 @@ export const updateRoomSchema = createRoomSchema.partial();
 const cpfSchema = z
   .string()
   .transform((value) => value.replace(/\D/g, ""))
-  .refine((value) => /^\d{11}$/.test(value), {
+  .refine((value) => value === "" || /^\d{11}$/.test(value), {
     message: "CPF must contain 11 digits",
-  });
+  })
+  .transform((value) => (value === "" ? null : value));
 
 export const createGuestSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(8).optional(),
-  cpf: cpfSchema,
+  cpf: cpfSchema.nullable().optional(),
   email: z.string().email().optional(),
   street: z.string().optional(),
   number: z.string().optional(),

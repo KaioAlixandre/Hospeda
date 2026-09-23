@@ -42,6 +42,7 @@ type AuthContextValue = {
     state?: string | null;
     zipCode?: string | null;
   }) => Promise<void>;
+  refreshHotel: () => Promise<void>;
   logout: () => void;
 };
 
@@ -130,9 +131,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const refreshHotel = useCallback(async () => {
+    const token = getStoredToken();
+    if (!token) return;
+    const { hotel: current } = await api.auth.me();
+    saveSession({ token, hotel: current });
+    setHotel(current);
+  }, []);
+
   const value = useMemo(
-    () => ({ hotel, loading, login, register, updateHotel, logout }),
-    [hotel, loading, login, register, updateHotel, logout],
+    () => ({
+      hotel,
+      loading,
+      login,
+      register,
+      updateHotel,
+      refreshHotel,
+      logout,
+    }),
+    [hotel, loading, login, register, updateHotel, refreshHotel, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,4 +1,4 @@
-import { CalendarSearch, Check, Percent } from "lucide-react";
+import { CalendarSearch, Check, Percent, Search, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import {
@@ -9,8 +9,9 @@ import {
   Loading,
   Modal,
 } from "../../components/ui";
-import { brl, notificationFeedback, todayISO } from "../../lib/format";
+import { brl, cpfMask, notificationFeedback, todayISO } from "../../lib/format";
 import type { Availability, AvailabilitySelection, Guest } from "../../types";
+import { GuestPickerModal } from "./GuestPickerModal";
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
@@ -25,6 +26,7 @@ export function NewReservationModal({
 }) {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [guestId, setGuestId] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [checkInDate, setCheckInDate] = useState(todayISO());
   const [checkOutDate, setCheckOutDate] = useState(todayISO(1));
   const [guestCount, setGuestCount] = useState("2");
@@ -43,10 +45,14 @@ export function NewReservationModal({
       .list()
       .then((guestList) => {
         setGuests(guestList);
-        setGuestId(guestList[0]?.id ?? "");
       })
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  const selectedGuest = useMemo(
+    () => guests.find((guest) => guest.id === guestId) ?? null,
+    [guests, guestId],
+  );
 
   const selectedOption = useMemo(
     () =>
@@ -210,15 +216,43 @@ export function NewReservationModal({
       <section className="modal-section">
         <h3 className="modal-section-title">Dados da estadia</h3>
         <div className="form-grid">
-          <Field label="Hóspede">
-            <select value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-              {guests.map((guest) => (
-                <option key={guest.id} value={guest.id}>
-                  {guest.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className="form-span">
+            <Field label="Hóspede">
+              <button
+                type="button"
+                className="guest-picker-trigger"
+                onClick={() => setPickerOpen(true)}
+                disabled={guests.length === 0}
+              >
+                <span className="guest-picker-avatar">
+                  <User size={16} />
+                </span>
+                <span className="guest-picker-info">
+                  {selectedGuest ? (
+                    <>
+                      <strong>{selectedGuest.name}</strong>
+                      <span className="muted">
+                        {[
+                          selectedGuest.phone,
+                          selectedGuest.cpf
+                            ? `CPF ${cpfMask(selectedGuest.cpf)}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Selecionar hóspede</strong>
+                      <span className="muted">Buscar por nome ou telefone</span>
+                    </>
+                  )}
+                </span>
+                <Search size={16} className="guest-picker-trigger-icon" />
+              </button>
+            </Field>
+          </div>
           <Field label="Data de entrada">
             <input
               type="date"
@@ -403,6 +437,20 @@ export function NewReservationModal({
           Criar reserva
         </Button>
       </footer>
+
+      {pickerOpen ? (
+        <GuestPickerModal
+          selectedId={guestId || undefined}
+          onClose={() => setPickerOpen(false)}
+          onSelect={(guest) => {
+            setGuestId(guest.id);
+            setGuests((prev) =>
+              prev.some((g) => g.id === guest.id) ? prev : [...prev, guest],
+            );
+            setPickerOpen(false);
+          }}
+        />
+      ) : null}
     </Modal>
   );
 }

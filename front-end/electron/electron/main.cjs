@@ -335,6 +335,21 @@ function registerApiConfigIpc() {
       restartRequired: true,
     };
   });
+
+  ipcMain.handle("shell:open-external", async (_event, url) => {
+    if (typeof url !== "string") throw new Error("URL inválida.");
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error("URL inválida.");
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      throw new Error("Só é permitido abrir links http/https.");
+    }
+    await shell.openExternal(parsed.toString());
+    return { ok: true };
+  });
 }
 
 app.whenReady().then(() => {
