@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { Button, EmptyState, Feedback, Icon, Loading, Panel } from "../components/ui";
-import { dateBR } from "../lib/format";
+import { brl, dateBR } from "../lib/format";
 import type { Dashboard, StaySummary } from "../types";
 
 const ROOM_STATUS_META: Array<{
@@ -210,6 +210,26 @@ export function DashboardPage() {
           />
         </Panel>
       </div>
+
+      <Panel title={data.topProducts?.label ?? "Mais vendidos (30 dias)"}>
+        {!data.topProducts?.items?.length ? (
+          <EmptyState message="Ainda não há lançamentos por produto. Cadastre itens e lance pela conta da reserva." />
+        ) : (
+          <ul className="top-products-list">
+            {data.topProducts.items.map((item) => (
+              <li key={item.productId}>
+                <div>
+                  <strong>{item.name}</strong>
+                  <span className="muted">
+                    {item.quantity} un. · {item.totalFormatted || brl(item.total)}
+                  </span>
+                </div>
+                <code>{item.quantity}×</code>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </section>
   );
 }

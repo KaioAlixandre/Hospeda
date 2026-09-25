@@ -13,7 +13,7 @@ const guestInclude = {
     include: {
       roomType: true,
       room: { include: { roomType: true } },
-      charges: true,
+      charges: { include: { category: true } },
       payments: true,
     },
   },

@@ -14,6 +14,7 @@ import { authRouter } from "./routes/auth.js";
 import { billingRouter } from "./routes/billing.js";
 import { billingWebhookRouter } from "./routes/billingWebhook.js";
 import { catalogRouter } from "./routes/catalog.js";
+import { chargeCategoriesRouter } from "./routes/chargeCategories.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { guestsRouter } from "./routes/guests.js";
 import { housekeepingRouter } from "./routes/housekeeping.js";
@@ -21,7 +22,9 @@ import {
   paymentActionsRouter,
   paymentsRouter,
 } from "./routes/payments.js";
+import { productsRouter } from "./routes/products.js";
 import { publicRouter } from "./routes/public.js";
+import { reportsRouter } from "./routes/reports.js";
 import {
   availabilityRouter,
   reservationsRouter,
@@ -49,7 +52,7 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "hospeda-api" });
+    res.json({ status: "ok", service: "staydesck-api" });
   });
 
   app.use(apiLimiter);
@@ -69,6 +72,8 @@ export function createApp() {
   app.use("/catalog", catalogRouter);
   app.use("/room-types", roomTypesRouter);
   app.use("/rooms", roomsRouter);
+  app.use("/charge-categories", chargeCategoriesRouter);
+  app.use("/products", productsRouter);
   app.use("/guests", guestsRouter);
   app.use("/reservations", reservationsRouter);
   app.use("/reservations/:reservationId/payments", paymentsRouter);
@@ -76,6 +81,7 @@ export function createApp() {
   app.use("/availability", availabilityRouter);
   app.use("/housekeeping", housekeepingRouter);
   app.use("/dashboard", dashboardRouter);
+  app.use("/reports", reportsRouter);
 
   app.use(errorHandler);
 

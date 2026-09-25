@@ -52,7 +52,7 @@ async function loadReservation(hotelId: string, id: string) {
       guest: true,
       roomType: true,
       room: { include: { roomType: true } },
-      charges: { orderBy: { postedAt: "asc" } },
+      charges: { include: { category: true }, orderBy: { postedAt: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
     },
   });
@@ -353,7 +353,7 @@ export async function createReservation(input: {
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -436,7 +436,7 @@ export async function confirmReservation(
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -486,7 +486,7 @@ export async function cancelReservation(hotelId: string, reservationId: string) 
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -595,7 +595,7 @@ export async function checkInReservation(
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -689,7 +689,7 @@ export async function checkOutReservation(
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -814,7 +814,7 @@ export async function listReservations(hotelId: string, status?: string) {
       guest: true,
       roomType: true,
       room: { include: { roomType: true } },
-      charges: { orderBy: { postedAt: "asc" } },
+      charges: { include: { category: true }, orderBy: { postedAt: "asc" } },
       payments: { orderBy: { paidAt: "asc" } },
     },
     orderBy: { checkInDate: "asc" },
@@ -883,7 +883,7 @@ export async function updateReservation(
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });
@@ -984,7 +984,7 @@ export async function updateReservation(
         guest: true,
         roomType: true,
         room: { include: { roomType: true } },
-        charges: true,
+        charges: { include: { category: true } },
         payments: true,
       },
     });

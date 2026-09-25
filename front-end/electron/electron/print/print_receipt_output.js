@@ -1,5 +1,5 @@
 /*
-  Envia um cupom (linhas + estilos) para a impressora configurada (Hospeda / Mira).
+  Envia um cupom (linhas + estilos) para a impressora configurada (StayDesck / Mira).
 */
 
 const fs = require('fs');
@@ -39,27 +39,27 @@ function envFirst(...keys) {
 }
 
 function resolveWritablePrintsDir() {
-  const envDir = envFirst('HOSPEDA_PRINTS_DIR', 'MIRA_PRINTS_DIR');
+  const envDir = envFirst('STAYDESCK_PRINTS_DIR', 'HOSPEDA_PRINTS_DIR', 'MIRA_PRINTS_DIR');
   if (envDir) return envDir;
 
-  const userData = envFirst('HOSPEDA_USER_DATA', 'MIRA_USER_DATA');
+  const userData = envFirst('STAYDESCK_USER_DATA', 'HOSPEDA_USER_DATA', 'MIRA_USER_DATA');
   if (userData) return path.join(userData, 'prints');
 
   return path.resolve(__dirname, '..', 'prints');
 }
 
 function loadPrintEnv(printCfg = {}) {
-  const localPrinterType = envFirst('HOSPEDA_PRINTER_TYPE', 'MIRA_PRINTER_TYPE');
-  const localPrinterTarget = envFirst('HOSPEDA_PRINTER_TARGET', 'MIRA_PRINTER_TARGET');
-  const localPaperWidth = Number(envFirst('HOSPEDA_PAPER_WIDTH_MM', 'MIRA_PAPER_WIDTH_MM') || 0);
-  const localContentWidth = Number(envFirst('HOSPEDA_CONTENT_WIDTH_MM', 'MIRA_CONTENT_WIDTH_MM') || 0);
+  const localPrinterType = envFirst('STAYDESCK_PRINTER_TYPE', 'HOSPEDA_PRINTER_TYPE', 'MIRA_PRINTER_TYPE');
+  const localPrinterTarget = envFirst('STAYDESCK_PRINTER_TARGET', 'HOSPEDA_PRINTER_TARGET', 'MIRA_PRINTER_TARGET');
+  const localPaperWidth = Number(envFirst('STAYDESCK_PAPER_WIDTH_MM', 'HOSPEDA_PAPER_WIDTH_MM', 'MIRA_PAPER_WIDTH_MM') || 0);
+  const localContentWidth = Number(envFirst('STAYDESCK_CONTENT_WIDTH_MM', 'HOSPEDA_CONTENT_WIDTH_MM', 'MIRA_CONTENT_WIDTH_MM') || 0);
   const fontScale = String(
-    envFirst('HOSPEDA_FONT_SCALE', 'MIRA_FONT_SCALE') || 'normal',
+    envFirst('STAYDESCK_FONT_SCALE', 'HOSPEDA_FONT_SCALE', 'MIRA_FONT_SCALE') || 'normal',
   ).toLowerCase();
   const localFontScalePercent = Number(
-    envFirst('HOSPEDA_FONT_SCALE_PERCENT', 'MIRA_FONT_SCALE_PERCENT') || 0,
+    envFirst('STAYDESCK_FONT_SCALE_PERCENT', 'HOSPEDA_FONT_SCALE_PERCENT', 'MIRA_FONT_SCALE_PERCENT') || 0,
   );
-  const localLineHeight = Number(envFirst('HOSPEDA_LINE_HEIGHT', 'MIRA_LINE_HEIGHT') || 0);
+  const localLineHeight = Number(envFirst('STAYDESCK_LINE_HEIGHT', 'HOSPEDA_LINE_HEIGHT', 'MIRA_LINE_HEIGHT') || 0);
 
   const printerType = String(localPrinterType || printCfg.printerType || 'mock_txt').toLowerCase();
   const printerTarget = String(localPrinterTarget || printCfg.printerTarget || '').trim();
@@ -236,7 +236,7 @@ async function printWindowsSpooler({ content, lineStyles, env, documentName }) {
   const b64LineStyles = Buffer.from(JSON.stringify(lineStyles), 'utf8').toString('base64');
   const b64Printer = Buffer.from(printerTarget, 'utf8').toString('base64');
   const b64FontScale = Buffer.from(fontScale, 'utf8').toString('base64');
-  const safeDocName = String(documentName || 'Hospeda Cupom').replace(/'/g, "''");
+  const safeDocName = String(documentName || 'StayDesck Cupom').replace(/'/g, "''");
 
   const psScript = `$ErrorActionPreference = 'Stop'
 $content = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64Content}'))
@@ -454,7 +454,7 @@ $doc.Dispose()
 async function printReceipt({
   lines,
   lineStyles,
-  documentName = 'Hospeda Cupom',
+  documentName = 'StayDesck Cupom',
   filePrefix = 'cupom',
   printCfg = {},
 } = {}) {

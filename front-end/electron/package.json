@@ -1,9 +1,9 @@
 {
-  "name": "hospeda-electron",
+  "name": "staydesck-electron",
   "version": "2.0.4",
   "private": true,
-  "description": "Hospeda — aplicativo desktop Electron",
-  "author": "Hospeda",
+  "description": "StayDesck — aplicativo desktop Electron",
+  "author": "StayDesck",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:vite\" \"npm:dev:electron\"",
@@ -15,8 +15,8 @@
     "dist:win": "npm run build && electron-builder --win"
   },
   "build": {
-    "appId": "com.hospeda.app",
-    "productName": "Hospeda",
+    "appId": "com.staydesck.app",
+    "productName": "StayDesck",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -48,7 +48,7 @@
       "createStartMenuShortcut": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "shortcutName": "Hospeda"
+      "shortcutName": "StayDesck"
     }
   },
   "dependencies": {

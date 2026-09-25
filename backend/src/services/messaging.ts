@@ -45,7 +45,7 @@ function env(name: string): string | undefined {
 }
 
 function propertyName(): string {
-  return env("MESSAGING_PROPERTY_NAME") ?? "Hospeda";
+  return env("MESSAGING_PROPERTY_NAME") ?? "StayDesck";
 }
 
 export function toWhatsAppPhone(raw: string | null | undefined): string | null {
@@ -432,7 +432,7 @@ export async function notifyHotelNewOnlineReservation(input: {
     `Tipo: ${input.roomTypeName}`,
     `Período: ${input.checkInDate} → ${input.checkOutDate}`,
     "",
-    `Confirme no Hospeda em até 24h.`,
+    `Confirme no StayDesck em até 24h.`,
     `— ${input.hotelName}`,
   ].join("\n");
 

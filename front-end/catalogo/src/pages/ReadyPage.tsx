@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import {
   HotelBrand,
-  HospedaFooter,
+  StayDesckFooter,
   LoadingBlock,
 } from "../components/HotelBrand";
 import { useHotel } from "../hooks/useHotel";
@@ -59,7 +59,7 @@ export function ReadyPage() {
         <Link className="back-link" to={`/h/${slug}`}>
           Voltar ao início
         </Link>
-        <HospedaFooter />
+        <StayDesckFooter />
       </div>
     </main>
   );

@@ -141,28 +141,28 @@ function listWindowsPrinters() {
 
 function applyPrintEnv(printSettings) {
   const userDataPath = app.getPath("userData");
-  process.env.HOSPEDA_PRINTER_TYPE = "windows_spooler";
-  process.env.HOSPEDA_PRINTER_TARGET = printSettings.printerTarget || "";
-  process.env.HOSPEDA_PAPER_WIDTH_MM = String(printSettings.paperWidthMm || 80);
-  process.env.HOSPEDA_CONTENT_WIDTH_MM = String(printSettings.contentWidthMm || 0);
-  process.env.HOSPEDA_FONT_SCALE = printSettings.fontScale || "normal";
-  process.env.HOSPEDA_FONT_SCALE_PERCENT = String(
+  process.env.STAYDESCK_PRINTER_TYPE = "windows_spooler";
+  process.env.STAYDESCK_PRINTER_TARGET = printSettings.printerTarget || "";
+  process.env.STAYDESCK_PAPER_WIDTH_MM = String(printSettings.paperWidthMm || 80);
+  process.env.STAYDESCK_CONTENT_WIDTH_MM = String(printSettings.contentWidthMm || 0);
+  process.env.STAYDESCK_FONT_SCALE = printSettings.fontScale || "normal";
+  process.env.STAYDESCK_FONT_SCALE_PERCENT = String(
     printSettings.fontScalePercent || 100,
   );
-  process.env.HOSPEDA_LINE_HEIGHT = String(printSettings.lineHeight || 1.35);
-  process.env.HOSPEDA_USER_DATA = userDataPath;
-  process.env.HOSPEDA_PRINTS_DIR = path.join(userDataPath, "prints");
+  process.env.STAYDESCK_LINE_HEIGHT = String(printSettings.lineHeight || 1.35);
+  process.env.STAYDESCK_USER_DATA = userDataPath;
+  process.env.STAYDESCK_PRINTS_DIR = path.join(userDataPath, "prints");
 
   // Compatível com o helper portado do Mira-Printer
-  process.env.MIRA_PRINTER_TYPE = process.env.HOSPEDA_PRINTER_TYPE;
-  process.env.MIRA_PRINTER_TARGET = process.env.HOSPEDA_PRINTER_TARGET;
-  process.env.MIRA_PAPER_WIDTH_MM = process.env.HOSPEDA_PAPER_WIDTH_MM;
-  process.env.MIRA_CONTENT_WIDTH_MM = process.env.HOSPEDA_CONTENT_WIDTH_MM;
-  process.env.MIRA_FONT_SCALE = process.env.HOSPEDA_FONT_SCALE;
-  process.env.MIRA_FONT_SCALE_PERCENT = process.env.HOSPEDA_FONT_SCALE_PERCENT;
-  process.env.MIRA_LINE_HEIGHT = process.env.HOSPEDA_LINE_HEIGHT;
-  process.env.MIRA_USER_DATA = process.env.HOSPEDA_USER_DATA;
-  process.env.MIRA_PRINTS_DIR = process.env.HOSPEDA_PRINTS_DIR;
+  process.env.MIRA_PRINTER_TYPE = process.env.STAYDESCK_PRINTER_TYPE;
+  process.env.MIRA_PRINTER_TARGET = process.env.STAYDESCK_PRINTER_TARGET;
+  process.env.MIRA_PAPER_WIDTH_MM = process.env.STAYDESCK_PAPER_WIDTH_MM;
+  process.env.MIRA_CONTENT_WIDTH_MM = process.env.STAYDESCK_CONTENT_WIDTH_MM;
+  process.env.MIRA_FONT_SCALE = process.env.STAYDESCK_FONT_SCALE;
+  process.env.MIRA_FONT_SCALE_PERCENT = process.env.STAYDESCK_FONT_SCALE_PERCENT;
+  process.env.MIRA_LINE_HEIGHT = process.env.STAYDESCK_LINE_HEIGHT;
+  process.env.MIRA_USER_DATA = process.env.STAYDESCK_USER_DATA;
+  process.env.MIRA_PRINTS_DIR = process.env.STAYDESCK_PRINTS_DIR;
 }
 
 async function runReservationPrint(payload, settingsOverride) {
@@ -194,7 +194,7 @@ function sampleReservationPayload(hotelName, hotelCnpj) {
     id: "test",
     code: "HSP-TEST",
     statusLabel: "Confirmada",
-    hotel: { name: hotelName || "Hospeda", cnpj: hotelCnpj || null },
+    hotel: { name: hotelName || "StayDesck", cnpj: hotelCnpj || null },
     guest: {
       name: "Maria Silva",
       phone: "(11) 99999-0000",
@@ -251,7 +251,7 @@ function createWindow() {
     height: 800,
     minWidth: 960,
     minHeight: 640,
-    title: "Hospeda",
+    title: "StayDesck",
     backgroundColor: "#0f2a2e",
     ...(icon ? { icon } : {}),
     webPreferences: {
@@ -354,7 +354,7 @@ function registerApiConfigIpc() {
 
 app.whenReady().then(() => {
   if (process.platform === "win32") {
-    app.setAppUserModelId("com.hospeda.app");
+    app.setAppUserModelId("com.staydesck.app");
   }
 
   registerApiConfigIpc();
@@ -362,11 +362,11 @@ app.whenReady().then(() => {
 
   const resolved = currentApiConfig();
   console.log(
-    `[Hospeda] API: ${resolved.apiBaseUrl} (origem: ${resolved.source})`,
+    `[StayDesck] API: ${resolved.apiBaseUrl} (origem: ${resolved.source})`,
   );
   if (resolved.insecure) {
     console.warn(
-      "[Hospeda] AVISO: a API está em HTTP fora de localhost — credenciais trafegam em texto puro. Prefira HTTPS.",
+      "[StayDesck] AVISO: a API está em HTTP fora de localhost — credenciais trafegam em texto puro. Prefira HTTPS.",
     );
   }
 

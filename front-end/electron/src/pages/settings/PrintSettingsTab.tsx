@@ -18,20 +18,20 @@ const PAPER_PRESETS = [58, 80] as const;
 
 function isElectronShell() {
   return (
-    Boolean(window.hospeda?.isElectron) ||
+    Boolean(window.staydesck?.isElectron) ||
     /Electron/i.test(navigator.userAgent)
   );
 }
 
 function hasPrintApi() {
-  return Boolean(window.hospeda?.print?.getSettings);
+  return Boolean(window.staydesck?.print?.getSettings);
 }
 
 export function PrintSettingsTab() {
   const { hotel } = useAuth();
   const [settings, setSettings] = useState<PrintSettings | null>(null);
   const [printers, setPrinters] = useState<string[]>([]);
-  const [platform, setPlatform] = useState(window.hospeda?.platform ?? "");
+  const [platform, setPlatform] = useState(window.staydesck?.platform ?? "");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +43,14 @@ export function PrintSettingsTab() {
       setLoading(false);
       setError(
         isElectronShell()
-          ? "Módulo de impressão não carregou. Feche o Hospeda por completo e abra de novo (o preload só atualiza ao reiniciar)."
-          : "Impressão disponível apenas no aplicativo desktop Hospeda (Electron).",
+          ? "Módulo de impressão não carregou. Feche o StayDesck por completo e abra de novo (o preload só atualiza ao reiniciar)."
+          : "Impressão disponível apenas no aplicativo desktop StayDesck (Electron).",
       );
       return;
     }
     setLoading(true);
     try {
-      const data = await window.hospeda!.print!.getSettings();
+      const data = await window.staydesck!.print!.getSettings();
       setSettings(data.settings);
       setPrinters(data.printers);
       setPlatform(data.platform);
@@ -78,7 +78,7 @@ export function PrintSettingsTab() {
     setError(null);
     setMessage(null);
     try {
-      const next = await window.hospeda!.print!.saveSettings({
+      const next = await window.staydesck!.print!.saveSettings({
         ...settings,
         contentWidthMm: contentAuto ? 0 : settings.contentWidthMm,
       });
@@ -96,7 +96,7 @@ export function PrintSettingsTab() {
     setBusy(true);
     setError(null);
     try {
-      const list = await window.hospeda!.print!.listPrinters();
+      const list = await window.staydesck!.print!.listPrinters();
       setPrinters(list);
       setMessage(
         list.length
@@ -116,11 +116,11 @@ export function PrintSettingsTab() {
     setError(null);
     setMessage(null);
     try {
-      await window.hospeda!.print!.saveSettings({
+      await window.staydesck!.print!.saveSettings({
         ...settings,
         contentWidthMm: contentAuto ? 0 : settings.contentWidthMm,
       });
-      const result = await window.hospeda!.print!.test({
+      const result = await window.staydesck!.print!.test({
         ...settings,
         contentWidthMm: contentAuto ? 0 : settings.contentWidthMm,
         hotelName: hotel?.name,

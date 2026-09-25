@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useAuth } from "../auth";
 import { dateBR } from "../lib/format";
 
-const DISMISS_KEY = "hospeda_plan_banner_dismissed";
+const DISMISS_KEY = "staydesck_plan_banner_dismissed";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WARN_DAYS = 5;
 
@@ -40,7 +40,7 @@ export function PlanExpiryBanner() {
     ? `Seu plano foi rebaixado para ${sub.label}. Renove para recuperar WhatsApp e catálogo.`
     : sub.paidUntil
       ? `Seu plano vence em ${dateBR(sub.paidUntil)}. Renove a tempo para manter os extras.`
-      : "Atenção ao vencimento do seu plano Hospeda.";
+      : "Atenção ao vencimento do seu plano StayDesck.";
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));

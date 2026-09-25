@@ -1,18 +1,20 @@
 import type {
   Availability,
+  ChargeCategory,
   Dashboard,
   Guest,
   HousekeepingBoard,
   Zelador,
   Payment,
+  Product,
   Reservation,
   Room,
   RoomType,
 } from "./types";
 import { API_BASE_URL } from "./config";
 
-const TOKEN_KEY = "hospeda_token";
-const HOTEL_KEY = "hospeda_hotel";
+const TOKEN_KEY = "staydesck_token";
+const HOTEL_KEY = "staydesck_hotel";
 
 export type PlanCode = "SIMPLES" | "PRO" | "PLUS";
 export type PlanFeature = "messaging" | "catalog";
@@ -125,7 +127,7 @@ async function request<T>(
 
   if (response.status === 401 && useAuth) {
     clearSession();
-    window.dispatchEvent(new Event("hospeda:unauthorized"));
+    window.dispatchEvent(new Event("staydesck:unauthorized"));
   }
 
   if (!response.ok) {
@@ -163,7 +165,7 @@ async function uploadFormData<T>(
 
   if (response.status === 401) {
     clearSession();
-    window.dispatchEvent(new Event("hospeda:unauthorized"));
+    window.dispatchEvent(new Event("staydesck:unauthorized"));
   }
 
   if (!response.ok) {
@@ -321,15 +323,105 @@ export const api = {
       post<Reservation>(`/reservations/${id}/extend`, body),
     addCharge: (
       id: string,
-      body: { type: string; description: string; amount: number },
+      body:
+        | { productId: string; quantity: number; note?: string }
+        | {
+            categoryId: string;
+            description: string;
+            amount: number;
+            quantity?: number;
+          },
     ) => post(`/reservations/${id}/charges`, body),
+    addChargesBatch: (
+      id: string,
+      body: {
+        items: Array<
+          | { productId: string; quantity: number; note?: string }
+          | {
+              categoryId: string;
+              description: string;
+              amount: number;
+              quantity?: number;
+            }
+        >;
+      },
+    ) => post(`/reservations/${id}/charges/batch`, body),
     updateCharge: (
       id: string,
       chargeId: string,
-      body: { type?: string; description?: string; amount?: number },
+      body: {
+        categoryId?: string;
+        description?: string;
+        amount?: number;
+        quantity?: number;
+        type?: string;
+      },
     ) => patch(`/reservations/${id}/charges/${chargeId}`, body),
     removeCharge: (id: string, chargeId: string) =>
       del(`/reservations/${id}/charges/${chargeId}`),
+  },
+
+  chargeCategories: {
+    list: (filters?: { active?: boolean }) =>
+      get<ChargeCategory[]>(
+        `/charge-categories${query({
+          active:
+            filters?.active === undefined
+              ? undefined
+              : filters.active
+                ? "true"
+                : "false",
+        })}`,
+      ),
+    create: (body: {
+      name: string;
+      group: string;
+      icon?: string | null;
+      position?: number;
+    }) => post<ChargeCategory>("/charge-categories", body),
+    update: (id: string, body: Record<string, unknown>) =>
+      patch<ChargeCategory>(`/charge-categories/${id}`, body),
+    remove: (id: string) => del(`/charge-categories/${id}`),
+  },
+
+  products: {
+    list: (filters?: {
+      categoryId?: string;
+      q?: string;
+      active?: boolean;
+    }) =>
+      get<Product[]>(
+        `/products${query({
+          categoryId: filters?.categoryId,
+          q: filters?.q,
+          active:
+            filters?.active === undefined
+              ? undefined
+              : filters.active
+                ? "true"
+                : "false",
+        })}`,
+      ),
+    create: (body: {
+      categoryId: string;
+      name: string;
+      code?: string | null;
+      price: number;
+      unit?: string | null;
+      position?: number;
+    }) => post<Product>("/products", body),
+    createBatch: (body: {
+      categoryId: string;
+      items: Array<{
+        name: string;
+        price: number;
+        code?: string | null;
+        unit?: string | null;
+      }>;
+    }) => post<Product[]>("/products/batch", body),
+    update: (id: string, body: Record<string, unknown>) =>
+      patch<Product>(`/products/${id}`, body),
+    remove: (id: string) => del(`/products/${id}`),
   },
 
   payments: {

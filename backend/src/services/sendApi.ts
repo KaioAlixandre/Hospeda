@@ -112,7 +112,7 @@ export async function createInstance(
   options: { webhookUrl?: string; webhookSecret?: string } = {},
 ) {
   const payload: Record<string, string> = {
-    name: String(name || "Hospeda").trim() || "Hospeda",
+    name: String(name || "StayDesck").trim() || "StayDesck",
   };
   if (options.webhookUrl) payload.webhookUrl = options.webhookUrl;
   if (options.webhookSecret) payload.webhookSecret = options.webhookSecret;

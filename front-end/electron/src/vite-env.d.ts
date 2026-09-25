@@ -27,7 +27,7 @@ type ApiConfig = {
 
 declare global {
   interface Window {
-    hospeda?: {
+    staydesck?: {
       apiBaseUrl: string;
       platform: string;
       isElectron?: boolean;

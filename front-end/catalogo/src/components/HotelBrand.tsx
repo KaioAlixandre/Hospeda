@@ -30,10 +30,10 @@ export function HotelBrand({ hotel, compact }: Props) {
   );
 }
 
-export function HospedaFooter() {
+export function StayDesckFooter() {
   return (
-    <footer className="hospeda-footer">
-      <span>Feito com Hospeda</span>
+    <footer className="staydesck-footer">
+      <span>Feito com StayDesck</span>
     </footer>
   );
 }

@@ -3,6 +3,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   LogOut,
+  Package,
   Settings,
   SprayCan,
   Users,
@@ -15,6 +16,7 @@ import { AuthLoading, AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GuestsPage } from "./pages/GuestsPage";
 import { HousekeepingPage } from "./pages/HousekeepingPage";
+import { ProductsPage } from "./pages/ProductsPage";
 import { ReservationsPage } from "./pages/ReservationsPage";
 import { RoomsPage } from "./pages/RoomsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -24,6 +26,7 @@ const links = [
   { to: "/rooms", label: "Quartos", icon: BedDouble },
   { to: "/reservations", label: "Reservas", icon: CalendarDays },
   { to: "/guests", label: "Hóspedes", icon: Users },
+  { to: "/products", label: "Produtos", icon: Package },
   { to: "/housekeeping", label: "Limpeza", icon: SprayCan },
   { to: "/settings", label: "Configurações", icon: Settings },
 ];
@@ -85,6 +88,7 @@ export function App() {
           <Route path="/rooms" element={<RoomsPage />} />
           <Route path="/reservations" element={<ReservationsPage />} />
           <Route path="/guests" element={<GuestsPage />} />
+          <Route path="/products" element={<ProductsPage />} />
           <Route path="/housekeeping" element={<HousekeepingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

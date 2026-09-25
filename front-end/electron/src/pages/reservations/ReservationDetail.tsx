@@ -6,17 +6,20 @@ import {
   CreditCard,
   LogIn,
   LogOut,
+  Minus,
   Pencil,
   Plus,
   Printer,
   Scale,
+  Search,
+  ShoppingCart,
   Trash2,
   Undo2,
   Users,
   Wallet,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import {
@@ -25,11 +28,25 @@ import {
   EmptyState,
   Feedback,
   Field,
+  Icon,
   Loading,
   Modal,
 } from "../../components/ui";
-import { brl, dateBR, dateTimeBR, notificationFeedback } from "../../lib/format";
-import type { Reservation, Room } from "../../types";
+import {
+  brl,
+  moneyInputMask,
+  notificationFeedback,
+  parseMoneyInput,
+  dateBR,
+  dateTimeBR,
+} from "../../lib/format";
+import type {
+  Charge,
+  ChargeCategory,
+  Product,
+  Reservation,
+  Room,
+} from "../../types";
 
 function toDateInput(value: string): string {
   return value.slice(0, 10);
@@ -41,24 +58,23 @@ function addDaysISO(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-const CHARGE_TYPES = [
-  { value: "MINIBAR", label: "Frigobar" },
-  { value: "RESTAURANT", label: "Restaurante" },
-  { value: "LAUNDRY", label: "Lavanderia" },
-  { value: "SERVICE", label: "Serviço" },
-  { value: "OTHER", label: "Outro" },
-  { value: "DISCOUNT", label: "Desconto" },
-];
-
-const CHARGE_LABEL: Record<string, string> = {
-  ROOM: "Diárias",
-  MINIBAR: "Frigobar",
-  RESTAURANT: "Restaurante",
-  LAUNDRY: "Lavanderia",
-  SERVICE: "Serviço",
-  OTHER: "Outro",
-  DISCOUNT: "Desconto",
-};
+type CartItem =
+  | {
+      key: string;
+      kind: "product";
+      productId: string;
+      name: string;
+      unitPrice: number;
+      quantity: number;
+    }
+  | {
+      key: string;
+      kind: "manual";
+      categoryId: string;
+      description: string;
+      amount: number;
+      quantity: number;
+    };
 
 const PAYMENT_METHODS = [
   { value: "PIX", label: "PIX" },
@@ -97,9 +113,16 @@ export function ReservationDetail({
   const [printing, setPrinting] = useState(false);
 
   const [roomId, setRoomId] = useState("");
-  const [chargeType, setChargeType] = useState("MINIBAR");
+  const [chargeTab, setChargeTab] = useState<"products" | "manual">("products");
+  const [chargeCategoryId, setChargeCategoryId] = useState("");
   const [chargeDescription, setChargeDescription] = useState("");
   const [chargeAmount, setChargeAmount] = useState("");
+  const [categories, setCategories] = useState<ChargeCategory[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [productCategoryId, setProductCategoryId] = useState<string>("");
+  const [productSearch, setProductSearch] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentConfirmed, setPaymentConfirmed] = useState(true);
@@ -115,22 +138,31 @@ export function ReservationDetail({
 
   function resetChargeForm() {
     setEditingChargeId(null);
-    setChargeType("MINIBAR");
     setChargeDescription("");
     setChargeAmount("");
+    setCart([]);
+    setProductSearch("");
+    setChargeTab("products");
   }
 
-  function startEditCharge(charge: {
-    id: string;
-    type: string;
-    description: string;
-    amount: string | number;
-  }) {
+  function startEditCharge(charge: Charge) {
     setEditingChargeId(charge.id);
-    setChargeType(charge.type === "ROOM" ? "OTHER" : charge.type);
+    setChargeTab("manual");
+    setChargeCategoryId(charge.categoryId ?? categories[0]?.id ?? "");
     setChargeDescription(charge.description);
     setChargeAmount(String(charge.amount));
   }
+
+  const loadCatalog = useCallback(async () => {
+    const [cats, prods] = await Promise.all([
+      api.chargeCategories.list({ active: true }),
+      api.products.list({ active: true }),
+    ]);
+    setCategories(cats);
+    setCatalogProducts(prods);
+    setChargeCategoryId((prev) => prev || cats[0]?.id || "");
+    setProductCategoryId((prev) => prev || cats[0]?.id || "");
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -156,6 +188,73 @@ export function ReservationDetail({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!chargesOpen) return;
+    void loadCatalog().then(() => {
+      requestAnimationFrame(() => searchRef.current?.focus());
+    });
+  }, [chargesOpen, loadCatalog]);
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    return catalogProducts.filter((p) => {
+      if (productCategoryId && p.categoryId !== productCategoryId) return false;
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.code?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [catalogProducts, productCategoryId, productSearch]);
+
+  const cartTotal = useMemo(
+    () =>
+      cart.reduce((sum, item) => {
+        if (item.kind === "product") {
+          return sum + item.unitPrice * item.quantity;
+        }
+        return sum + item.amount * item.quantity;
+      }, 0),
+    [cart],
+  );
+
+  function addProductToCart(product: Product) {
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) => item.kind === "product" && item.productId === product.id,
+      );
+      if (existing && existing.kind === "product") {
+        return prev.map((item) =>
+          item.key === existing.key
+            ? { ...item, quantity: Math.min(99, item.quantity + 1) }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          key: `p-${product.id}`,
+          kind: "product" as const,
+          productId: product.id,
+          name: product.name,
+          unitPrice: Number(product.price),
+          quantity: 1,
+        },
+      ];
+    });
+  }
+
+  function setCartQty(key: string, quantity: number) {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.key === key
+            ? { ...item, quantity: Math.max(0, Math.min(99, quantity)) }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  }
   async function run(action: () => Promise<unknown>, feedback: string) {
     setBusy(true);
     setError(null);
@@ -174,7 +273,7 @@ export function ReservationDetail({
 
   async function printDetails() {
     if (!reservation) return;
-    if (!window.hospeda?.print?.reservation) {
+    if (!window.staydesck?.print?.reservation) {
       setError(
         "Impressão disponível apenas no aplicativo desktop. Configure em Configurações → Impressão.",
       );
@@ -183,10 +282,10 @@ export function ReservationDetail({
     setPrinting(true);
     setError(null);
     try {
-      const result = await window.hospeda.print.reservation({
+      const result = await window.staydesck.print.reservation({
         ...reservation,
         hotel: {
-          name: hotel?.name ?? "Hospeda",
+          name: hotel?.name ?? "StayDesck",
           cnpj: hotel?.cnpj ?? null,
           cnpjFormatted: hotel?.cnpjFormatted ?? null,
         },
@@ -736,19 +835,259 @@ export function ReservationDetail({
         }}
       >
         <p className="muted charges-modal-intro">
-          Consumos, serviços e descontos da conta do hóspede. Diárias
-          automáticas não podem ser alteradas aqui.
+          Produtos cadastrados ou texto livre. Diárias automáticas não podem ser
+          alteradas aqui.
         </p>
 
-        {reservation.status !== "CANCELLED" ? (
+        {reservation.status !== "CANCELLED" && !editingChargeId ? (
+          <>
+            <div className="charges-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                className={chargeTab === "products" ? "active" : undefined}
+                aria-selected={chargeTab === "products"}
+                onClick={() => setChargeTab("products")}
+              >
+                Produtos
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={chargeTab === "manual" ? "active" : undefined}
+                aria-selected={chargeTab === "manual"}
+                onClick={() => setChargeTab("manual")}
+              >
+                Manual
+              </button>
+            </div>
+
+            {chargeTab === "products" ? (
+              <div className="charges-products-pane">
+                <label className="products-search charges-product-search">
+                  <Search size={16} />
+                  <input
+                    ref={searchRef}
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Buscar nome ou código (Enter adiciona)"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const first = filteredProducts[0];
+                        if (first) addProductToCart(first);
+                      }
+                    }}
+                  />
+                </label>
+                <div className="charges-category-pills">
+                  <button
+                    type="button"
+                    className={
+                      productCategoryId === "" ? "chip active" : "chip"
+                    }
+                    onClick={() => setProductCategoryId("")}
+                  >
+                    Todas
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={
+                        productCategoryId === cat.id ? "chip active" : "chip"
+                      }
+                      onClick={() => setProductCategoryId(cat.id)}
+                    >
+                      {cat.icon ? <Icon name={cat.icon} size={14} /> : null}
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="charges-product-grid">
+                  {filteredProducts.length === 0 ? (
+                    <p className="muted">Nenhum produto nesta busca.</p>
+                  ) : (
+                    filteredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className="charges-product-btn"
+                        onClick={() => addProductToCart(product)}
+                      >
+                        <strong>{product.name}</strong>
+                        <span>{brl(product.price)}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="mini-form">
+                <select
+                  value={chargeCategoryId}
+                  onChange={(e) => setChargeCategoryId(e.target.value)}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  placeholder="Descrição"
+                  value={chargeDescription}
+                  onChange={(e) => setChargeDescription(e.target.value)}
+                />
+                <input
+                  inputMode="numeric"
+                  placeholder="Valor"
+                  value={chargeAmount}
+                  onChange={(e) =>
+                    setChargeAmount(moneyInputMask(e.target.value))
+                  }
+                />
+                <Button
+                  icon={<Plus size={15} />}
+                  disabled={
+                    !isConfirmed ||
+                    !chargeCategoryId ||
+                    !chargeDescription ||
+                    !(parseMoneyInput(chargeAmount) > 0)
+                  }
+                  onClick={() => {
+                    const amount = parseMoneyInput(chargeAmount);
+                    if (!(amount > 0) || !chargeCategoryId) return;
+                    setCart((prev) => [
+                      ...prev,
+                      {
+                        key: `m-${Date.now()}`,
+                        kind: "manual",
+                        categoryId: chargeCategoryId,
+                        description: chargeDescription.trim(),
+                        amount,
+                        quantity: 1,
+                      },
+                    ]);
+                    setChargeDescription("");
+                    setChargeAmount("");
+                  }}
+                >
+                  Ao carrinho
+                </Button>
+              </div>
+            )}
+
+            <div className="charges-cart">
+              <header>
+                <ShoppingCart size={16} />
+                <strong>Carrinho</strong>
+                <span className="muted">{cart.length} item(ns)</span>
+              </header>
+              {cart.length === 0 ? (
+                <p className="muted">Nada selecionado ainda.</p>
+              ) : (
+                <ul className="list compact">
+                  {cart.map((item) => (
+                    <li key={item.key}>
+                      <div>
+                        <strong>
+                          {item.kind === "product"
+                            ? item.name
+                            : item.description}
+                        </strong>
+                        <span className="muted">
+                          {item.kind === "product"
+                            ? brl(item.unitPrice)
+                            : brl(item.amount)}{" "}
+                          · un.
+                        </span>
+                      </div>
+                      <div className="cell-actions charges-cart-qty">
+                        <Button
+                          icon={<Minus size={14} />}
+                          onClick={() =>
+                            setCartQty(item.key, item.quantity - 1)
+                          }
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={item.quantity}
+                          onChange={(e) =>
+                            setCartQty(item.key, Number(e.target.value) || 1)
+                          }
+                        />
+                        <Button
+                          icon={<Plus size={14} />}
+                          onClick={() =>
+                            setCartQty(item.key, item.quantity + 1)
+                          }
+                        />
+                        <span>
+                          {brl(
+                            item.kind === "product"
+                              ? item.unitPrice * item.quantity
+                              : item.amount * item.quantity,
+                          )}
+                        </span>
+                        <Button
+                          variant="danger"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => setCartQty(item.key, 0)}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <footer className="charges-cart-foot">
+                <strong>Total {brl(cartTotal)}</strong>
+                <Button
+                  variant="primary"
+                  icon={<Plus size={15} />}
+                  loading={busy}
+                  disabled={!isConfirmed || cart.length === 0}
+                  onClick={() =>
+                    run(async () => {
+                      await api.reservations.addChargesBatch(reservation.id, {
+                        items: cart.map((item) =>
+                          item.kind === "product"
+                            ? {
+                                productId: item.productId,
+                                quantity: item.quantity,
+                              }
+                            : {
+                                categoryId: item.categoryId,
+                                description: item.description,
+                                amount: Number(
+                                  (item.amount * item.quantity).toFixed(2),
+                                ),
+                                quantity: item.quantity,
+                              },
+                        ),
+                      });
+                      resetChargeForm();
+                    }, "Lançamentos adicionados.")
+                  }
+                >
+                  Lançar
+                </Button>
+              </footer>
+            </div>
+          </>
+        ) : null}
+
+        {editingChargeId && reservation.status !== "CANCELLED" ? (
           <div className="mini-form">
             <select
-              value={chargeType}
-              onChange={(e) => setChargeType(e.target.value)}
+              value={chargeCategoryId}
+              onChange={(e) => setChargeCategoryId(e.target.value)}
             >
-              {CHARGE_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
@@ -758,78 +1097,56 @@ export function ReservationDetail({
               onChange={(e) => setChargeDescription(e.target.value)}
             />
             <input
-              type="number"
-              min={0}
-              step="0.01"
+              inputMode="numeric"
               placeholder="Valor"
               value={chargeAmount}
-              onChange={(e) => setChargeAmount(e.target.value)}
+              onChange={(e) =>
+                setChargeAmount(moneyInputMask(e.target.value))
+              }
             />
-            {editingChargeId ? (
-              <>
-                <Button
-                  variant="primary"
-                  icon={<Pencil size={15} />}
-                  loading={busy}
-                  disabled={!chargeDescription || !chargeAmount}
-                  onClick={() =>
-                    run(async () => {
-                      await api.reservations.updateCharge(
-                        reservation.id,
-                        editingChargeId,
-                        {
-                          type: chargeType,
-                          description: chargeDescription,
-                          amount: Number(chargeAmount),
-                        },
-                      );
-                      resetChargeForm();
-                    }, "Lançamento atualizado.")
-                  }
-                >
-                  Salvar
-                </Button>
-                <Button
-                  icon={<X size={15} />}
-                  disabled={busy}
-                  onClick={resetChargeForm}
-                >
-                  Cancelar
-                </Button>
-              </>
-            ) : (
-              <Button
-                icon={<Plus size={15} />}
-                loading={busy}
-                disabled={
-                  !isConfirmed || !chargeDescription || !chargeAmount
-                }
-                onClick={() =>
-                  run(async () => {
-                    await api.reservations.addCharge(reservation.id, {
-                      type: chargeType,
+            <Button
+              variant="primary"
+              icon={<Pencil size={15} />}
+              loading={busy}
+              disabled={
+                !chargeDescription || !(parseMoneyInput(chargeAmount) > 0)
+              }
+              onClick={() =>
+                run(async () => {
+                  await api.reservations.updateCharge(
+                    reservation.id,
+                    editingChargeId,
+                    {
+                      categoryId: chargeCategoryId || undefined,
                       description: chargeDescription,
-                      amount: Number(chargeAmount),
-                    });
-                    resetChargeForm();
-                  }, "Lançamento adicionado.")
-                }
-              >
-                Lançar
-              </Button>
-            )}
+                      amount: parseMoneyInput(chargeAmount),
+                    },
+                  );
+                  resetChargeForm();
+                }, "Lançamento atualizado.")
+              }
+            >
+              Salvar
+            </Button>
+            <Button icon={<X size={15} />} disabled={busy} onClick={resetChargeForm}>
+              Cancelar
+            </Button>
           </div>
-        ) : (
+        ) : null}
+
+        {reservation.status === "CANCELLED" ? (
           <p className="muted">
             Reserva cancelada — lançamentos não podem ser alterados.
           </p>
-        )}
+        ) : null}
 
         {!isConfirmed && reservation.status !== "CANCELLED" && !editingChargeId ? (
           <p className="muted">
             Confirme a reserva para adicionar novos lançamentos.
           </p>
         ) : null}
+
+        <h4 className="charges-list-title">Já lançados</h4>
 
         {reservation.charges.length === 0 ? (
           <EmptyState message="Sem lançamentos." />
@@ -839,18 +1156,28 @@ export function ReservationDetail({
               const isRoom = charge.type === "ROOM";
               const canManage =
                 !isRoom && reservation.status !== "CANCELLED";
+              const qty = charge.quantity ?? 1;
+              const label =
+                charge.category?.name ??
+                (isRoom ? "Diárias" : charge.type);
               return (
                 <li key={charge.id}>
                   <div>
-                    <strong>{charge.description}</strong>
+                    <strong>
+                      {qty > 1 ? `${qty}× ` : ""}
+                      {charge.description}
+                    </strong>
                     <span className="muted">
-                      {CHARGE_LABEL[charge.type] ?? charge.type}
+                      {label}
                       {isRoom ? " · automático" : ""}
                     </span>
                   </div>
                   <div className="cell-actions">
                     <span>
-                      {charge.type === "DISCOUNT" ? "− " : ""}
+                      {charge.type === "DISCOUNT" ||
+                      charge.category?.group === "DISCOUNT"
+                        ? "− "
+                        : ""}
                       {brl(charge.amount)}
                     </span>
                     {canManage ? (

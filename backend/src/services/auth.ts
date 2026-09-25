@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { seedDefaultChargeCategories } from "../lib/chargeCategories.js";
 import { requireJwtSecret } from "../lib/env.js";
 import { presentPlan, type PlanCode } from "../lib/plans.js";
 import { prisma } from "../lib/prisma.js";
@@ -192,6 +193,8 @@ export async function registerHotel(input: {
       slug,
     },
   });
+
+  await seedDefaultChargeCategories(prisma, hotel.id);
 
   const token = signToken(hotel.id);
   return { token, hotel: presentHotel(hotel) };

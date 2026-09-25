@@ -209,10 +209,6 @@ export function NewReservationModal({
     <Modal wide title="Nova reserva" onClose={onClose}>
       <Feedback error={error} />
 
-      {guests.length === 0 ? (
-        <EmptyState message="Cadastre um hóspede antes de criar reservas." />
-      ) : null}
-
       <section className="modal-section">
         <h3 className="modal-section-title">Dados da estadia</h3>
         <div className="form-grid">
@@ -222,7 +218,6 @@ export function NewReservationModal({
                 type="button"
                 className="guest-picker-trigger"
                 onClick={() => setPickerOpen(true)}
-                disabled={guests.length === 0}
               >
                 <span className="guest-picker-avatar">
                   <User size={16} />
@@ -244,7 +239,7 @@ export function NewReservationModal({
                     </>
                   ) : (
                     <>
-                      <strong>Selecionar hóspede</strong>
+                      <strong>Selecionar ou cadastrar hóspede</strong>
                       <span className="muted">Buscar por nome ou telefone</span>
                     </>
                   )}

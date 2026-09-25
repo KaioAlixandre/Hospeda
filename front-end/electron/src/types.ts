@@ -24,6 +24,37 @@ export type ChargeType =
   | "OTHER"
   | "DISCOUNT";
 
+export type ChargeGroup = "CONSUMPTION" | "SERVICE" | "DISCOUNT";
+
+export type ChargeCategory = {
+  id: string;
+  name: string;
+  group: ChargeGroup;
+  groupLabel: string;
+  icon: string | null;
+  active: boolean;
+  position: number;
+  productsCount: number;
+};
+
+export type Product = {
+  id: string;
+  categoryId: string;
+  name: string;
+  code: string | null;
+  price: number;
+  unit: string | null;
+  active: boolean;
+  position: number;
+  category: {
+    id: string;
+    name: string;
+    group: ChargeGroup;
+    icon: string | null;
+    active: boolean;
+  } | null;
+};
+
 export type RoomType = {
   id: string;
   name: string;
@@ -55,6 +86,16 @@ export type Charge = {
   type: ChargeType;
   description: string;
   amount: string | number;
+  quantity?: number;
+  unitPrice?: number | null;
+  categoryId?: string | null;
+  productId?: string | null;
+  category?: {
+    id: string;
+    name: string;
+    group: ChargeGroup;
+    icon: string | null;
+  } | null;
   postedAt: string;
 };
 
@@ -281,5 +322,15 @@ export type Dashboard = {
     checkIns: StaySummary[];
     checkOuts: StaySummary[];
     guestsInHouse: StaySummary[];
+  };
+  topProducts: {
+    label: string;
+    items: Array<{
+      productId: string;
+      name: string;
+      quantity: number;
+      total: number;
+      totalFormatted: string;
+    }>;
   };
 };

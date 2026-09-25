@@ -5,7 +5,7 @@ import { AppError } from "../middleware/errorHandler.js";
 async function loadReservationForBill(hotelId: string, reservationId: string) {
   const reservation = await prisma.reservation.findFirst({
     where: { id: reservationId, hotelId },
-    include: { charges: true, payments: true },
+    include: { charges: { include: { category: true } }, payments: true },
   });
   if (!reservation) throw new AppError(404, "Reservation not found");
   return reservation;

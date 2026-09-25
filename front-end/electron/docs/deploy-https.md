@@ -2,7 +2,7 @@
 
 O aplicativo desktop resolve a URL da API nesta ordem:
 
-1. `HOSPEDA_API_URL` (variável de ambiente — prioridade máxima)
+1. `STAYDESCK_API_URL` (variável de ambiente — prioridade máxima)
 2. Arquivo `api-settings.json` na pasta de dados do usuário
 3. `http://localhost:3333` (padrão de desenvolvimento)
 
@@ -31,5 +31,5 @@ O Caddy obtém e renova o certificado TLS sozinho.
 2. Informe `https://api.seudominio.com.br` (sem barra no final).
 3. Salve — o app recarrega e passa a usar o novo endereço.
 
-Se `HOSPEDA_API_URL` estiver definida no atalho ou no ambiente, a aba Servidor
+Se `STAYDESCK_API_URL` estiver definida no atalho ou no ambiente, a aba Servidor
 fica somente leitura até você remover a variável.

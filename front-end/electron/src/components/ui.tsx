@@ -1,5 +1,6 @@
 import {
   BedDouble,
+  Bell,
   CalendarCheck,
   CalendarDays,
   CalendarX,
@@ -12,10 +13,16 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Package,
+  Receipt,
+  Shirt,
   SprayCan,
+  Tag,
   TrendingUp,
   Users,
+  Utensils,
   Wallet,
+  Wine,
   Wrench,
   X,
   type LucideIcon,
@@ -47,6 +54,13 @@ const ICONS: Record<string, LucideIcon> = {
   grid: Grid2x2,
   "credit-card": CreditCard,
   circle: Circle,
+  wine: Wine,
+  utensils: Utensils,
+  shirt: Shirt,
+  "concierge-bell": Bell,
+  receipt: Receipt,
+  tag: Tag,
+  package: Package,
 };
 
 export function Icon({

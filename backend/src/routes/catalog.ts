@@ -29,7 +29,7 @@ catalogRouter.get("/", async (req, res, next) => {
     });
 
     const baseUrl = (
-      process.env.CATALOG_PUBLIC_BASE_URL ?? "https://reservas.seudominio.com.br"
+      process.env.CATALOG_PUBLIC_BASE_URL ?? "https://staydesk.com.br"
     ).replace(/\/$/, "");
 
     res.json({
@@ -85,7 +85,7 @@ catalogRouter.patch("/", async (req, res, next) => {
     });
 
     const baseUrl = (
-      process.env.CATALOG_PUBLIC_BASE_URL ?? "https://reservas.seudominio.com.br"
+      process.env.CATALOG_PUBLIC_BASE_URL ?? "https://staydesk.com.br"
     ).replace(/\/$/, "");
 
     res.json({

@@ -565,7 +565,7 @@ function WhatsAppPlanUpsell() {
   function handleUpgrade() {
     const hotelName = hotel?.name ?? "meu hotel";
     openSalesWhatsApp(
-      `Olá! Quero o plano Pro do Hospeda (WhatsApp) para o hotel ${hotelName}.`,
+      `Olá! Quero o plano Pro do StayDesck (WhatsApp) para o hotel ${hotelName}.`,
     );
   }
 

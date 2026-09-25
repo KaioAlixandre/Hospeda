@@ -7,7 +7,7 @@ try {
   // mantém o objeto vazio; a tela avisa que a API não está configurada
 }
 
-contextBridge.exposeInMainWorld("hospeda", {
+contextBridge.exposeInMainWorld("staydesck", {
   apiBaseUrl: apiConfig.apiBaseUrl,
   apiConfig: {
     get: () => ipcRenderer.invoke("api:get-config-async"),

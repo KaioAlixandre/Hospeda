@@ -4,7 +4,7 @@ import { api } from "../api";
 import {
   ErrorBanner,
   HotelBrand,
-  HospedaFooter,
+  StayDesckFooter,
   LoadingBlock,
 } from "../components/HotelBrand";
 import { useHotel } from "../hooks/useHotel";
@@ -76,7 +76,7 @@ export function ReservePage() {
     return (
       <main className="page page-centered">
         <ErrorBanner message={hotelState.error} />
-        <HospedaFooter />
+        <StayDesckFooter />
       </main>
     );
   }
@@ -172,7 +172,7 @@ export function ReservePage() {
         <p className="muted fine-print">
           O envio cria um pedido pendente. A confirmação é feita pelo hotel.
         </p>
-        <HospedaFooter />
+        <StayDesckFooter />
       </div>
     </main>
   );

@@ -81,11 +81,13 @@ function clearStoredApiBaseUrl(userDataPath) {
 }
 
 /**
- * Resolução: HOSPEDA_API_URL → arquivo em userData → localhost.
+ * Resolução: STAYDESCK_API_URL → arquivo em userData → localhost.
  * @param {string} userDataPath
  */
 function resolveApiBaseUrl(userDataPath) {
-  const fromEnv = normalizeApiBaseUrl(process.env.HOSPEDA_API_URL);
+  const fromEnv = normalizeApiBaseUrl(
+    process.env.STAYDESCK_API_URL || process.env.HOSPEDA_API_URL,
+  );
   if (fromEnv) return { apiBaseUrl: fromEnv, source: "env" };
 
   const stored = readStoredApiBaseUrl(userDataPath);

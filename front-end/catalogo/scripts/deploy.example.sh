@@ -6,8 +6,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 USER="${DEPLOY_USER:-deploy}"
-HOST="${DEPLOY_HOST:-reservas.seudominio.com.br}"
-DEST="${DEPLOY_DEST:-/var/www/hospeda-catalogo}"
+HOST="${DEPLOY_HOST:-staydesk.com.br}"
+DEST="${DEPLOY_DEST:-/var/www/staydesck-catalogo}"
 
 cd "$ROOT"
 npm ci

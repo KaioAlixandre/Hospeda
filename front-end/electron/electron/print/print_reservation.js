@@ -1,12 +1,12 @@
 /*
-  Monta e imprime o cupom térmico com detalhes da reserva (Hospeda).
+  Monta e imprime o cupom térmico com detalhes da reserva (StayDesck).
   Baseado no fluxo do Mira-Printer (linhas + print_receipt_output).
 */
 
 const { loadPrintEnv, printReceipt } = require("./print_receipt_output");
 
 function parsePayload() {
-  const raw = process.env.HOSPEDA_PRINT_JSON || process.env.AUTO_PRINT_ORDER_JSON;
+  const raw = process.env.STAYDESCK_PRINT_JSON || process.env.HOSPEDA_PRINT_JSON || process.env.AUTO_PRINT_ORDER_JSON;
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -112,7 +112,7 @@ function buildReservationReceipt(payload, receiptWidth) {
     : [];
   const charges = Array.isArray(payload?.charges) ? payload.charges : [];
   const payments = Array.isArray(payload?.payments) ? payload.payments : [];
-  const hotelName = String(hotel.name || payload?.hotelName || "Hospeda").trim();
+  const hotelName = String(hotel.name || payload?.hotelName || "StayDesck").trim();
   const hotelCnpj = formatCnpj(
     hotel.cnpjFormatted || hotel.cnpj || payload?.hotelCnpj,
   );
@@ -193,8 +193,15 @@ function buildReservationReceipt(payload, receiptWidth) {
   if (extras.length > 0) {
     pushLine(lines, styles, sectionHeader("CONSUMO", w));
     for (const charge of extras) {
-      const desc = String(charge.description || charge.type || "Item");
-      pushLine(lines, styles, moneyRow(desc.slice(0, Math.max(8, w - 10)), charge.amount, w));
+      const qty = Number(charge.quantity) || 1;
+      const raw = String(charge.description || charge.type || "Item");
+      const withQty = qty > 1 ? `${qty}x ${raw}` : raw;
+      const maxLen = Math.max(8, w - 10);
+      const desc =
+        withQty.length > maxLen
+          ? `${withQty.slice(0, Math.max(1, maxLen - 1))}…`
+          : withQty;
+      pushLine(lines, styles, moneyRow(desc, charge.amount, w));
     }
   }
 
@@ -235,7 +242,7 @@ function buildReservationReceipt(payload, receiptWidth) {
 
   pushLine(lines, styles, "-".repeat(w));
   pushLine(lines, styles, center("Obrigado pela preferencia!", w));
-  pushLine(lines, styles, center("Hospeda", w), "muted");
+  pushLine(lines, styles, center("StayDesck", w), "muted");
 
   return { lines, styles };
 }
@@ -252,7 +259,7 @@ async function printReservation(payload, printCfg = {}) {
   await printReceipt({
     lines,
     lineStyles: styles,
-    documentName: `Hospeda Reserva ${code}`,
+    documentName: `StayDesck Reserva ${code}`,
     filePrefix: `reserva_${code}`,
     printCfg,
   });
@@ -261,7 +268,7 @@ async function printReservation(payload, printCfg = {}) {
 async function main() {
   const payload = parsePayload();
   if (!payload) {
-    console.error("HOSPEDA_PRINT_JSON ausente ou invalido.");
+    console.error("STAYDESCK_PRINT_JSON ausente ou invalido.");
     process.exit(1);
   }
 

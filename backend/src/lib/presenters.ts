@@ -1,4 +1,5 @@
 import type {
+  ChargeGroup,
   FolioCharge,
   Guest,
   Payment,
@@ -209,6 +210,85 @@ export function presentRoomType(roomType: RoomType & { _count?: { rooms: number 
   };
 }
 
+const CHARGE_GROUP_LABEL: Record<ChargeGroup, string> = {
+  CONSUMPTION: "Consumo",
+  SERVICE: "Serviço",
+  DISCOUNT: "Desconto",
+};
+
+export function presentChargeCategory(
+  category: {
+    id: string;
+    hotelId: string;
+    name: string;
+    group: ChargeGroup;
+    icon: string | null;
+    active: boolean;
+    position: number;
+    createdAt: Date;
+    updatedAt: Date;
+    _count?: { products: number };
+  },
+) {
+  return {
+    id: category.id,
+    name: category.name,
+    group: category.group,
+    groupLabel: CHARGE_GROUP_LABEL[category.group] ?? category.group,
+    icon: category.icon,
+    active: category.active,
+    position: category.position,
+    productsCount: category._count?.products ?? 0,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt,
+  };
+}
+
+export function presentProduct(
+  product: {
+    id: string;
+    hotelId: string;
+    categoryId: string;
+    name: string;
+    code: string | null;
+    price: { toString(): string } | number;
+    unit: string | null;
+    active: boolean;
+    position: number;
+    createdAt: Date;
+    updatedAt: Date;
+    category?: {
+      id: string;
+      name: string;
+      group: ChargeGroup;
+      icon: string | null;
+      active: boolean;
+    } | null;
+  },
+) {
+  return {
+    id: product.id,
+    categoryId: product.categoryId,
+    name: product.name,
+    code: product.code,
+    price: Number(product.price),
+    unit: product.unit,
+    active: product.active,
+    position: product.position,
+    category: product.category
+      ? {
+          id: product.category.id,
+          name: product.category.name,
+          group: product.category.group,
+          icon: product.category.icon,
+          active: product.category.active,
+        }
+      : null,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  };
+}
+
 /** Cotação de um quarto disponível no período. */
 export function presentAvailabilityOption(
   room: RoomWithType,
@@ -241,26 +321,50 @@ type ReservationFull = Reservation & {
   guest: Guest;
   roomType: RoomType;
   room: (Room & { roomType: RoomType }) | null;
-  charges?: FolioCharge[];
+  charges?: ChargeWithCategory[];
   payments?: Payment[];
   roomSelection?: unknown;
 };
 
 const CONSUMPTION_TYPES = new Set(["MINIBAR", "RESTAURANT"]);
-const SERVICE_TYPES = new Set(["LAUNDRY", "SERVICE", "OTHER"]);
+
+type ChargeWithCategory = FolioCharge & {
+  category?: {
+    id?: string;
+    name?: string;
+    group: ChargeGroup;
+    icon?: string | null;
+  } | null;
+};
+
+/** De onde vem o valor na conta: diária, consumo, serviço ou desconto. */
+export function chargeGroup(
+  charge: ChargeWithCategory,
+): "ROOM" | ChargeGroup {
+  if (charge.type === "ROOM") return "ROOM";
+  if (charge.category) return charge.category.group;
+
+  // Lançamento antigo, sem categoria: cai no enum como sempre foi
+  if (CONSUMPTION_TYPES.has(charge.type)) return "CONSUMPTION";
+  if (charge.type === "DISCOUNT") return "DISCOUNT";
+  return "SERVICE";
+}
 
 /** Diárias + consumo + serviços − descontos = total */
 export function buildBill(reservation: {
-  charges?: FolioCharge[];
+  charges?: ChargeWithCategory[];
   payments?: Payment[];
 }) {
   const charges = reservation.charges ?? [];
   const payments = reservation.payments ?? [];
 
-  const roomNights = sumByType(charges, (c) => c.type === "ROOM");
-  const consumption = sumByType(charges, (c) => CONSUMPTION_TYPES.has(c.type));
-  const services = sumByType(charges, (c) => SERVICE_TYPES.has(c.type));
-  const discounts = sumByType(charges, (c) => c.type === "DISCOUNT");
+  const roomNights = sumByType(charges, (c) => chargeGroup(c) === "ROOM");
+  const consumption = sumByType(
+    charges,
+    (c) => chargeGroup(c) === "CONSUMPTION",
+  );
+  const services = sumByType(charges, (c) => chargeGroup(c) === "SERVICE");
+  const discounts = sumByType(charges, (c) => chargeGroup(c) === "DISCOUNT");
 
   const total = Number(
     (roomNights + consumption + services - discounts).toFixed(2),
@@ -297,6 +401,29 @@ export function buildBill(reservation: {
   };
 }
 
+export function presentCharge(charge: ChargeWithCategory) {
+  return {
+    id: charge.id,
+    type: charge.type,
+    description: charge.description,
+    amount: Number(charge.amount),
+    quantity: charge.quantity ?? 1,
+    unitPrice: charge.unitPrice != null ? Number(charge.unitPrice) : null,
+    categoryId: charge.categoryId ?? null,
+    productId: charge.productId ?? null,
+    category:
+      charge.category?.id && charge.category.name
+        ? {
+            id: charge.category.id,
+            name: charge.category.name,
+            group: charge.category.group,
+            icon: charge.category.icon ?? null,
+          }
+        : null,
+    postedAt: charge.postedAt,
+  };
+}
+
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   PIX: "PIX",
   CARD: "Cartão",
@@ -330,8 +457,8 @@ export function presentPayment(payment: Payment) {
 }
 
 function sumByType(
-  charges: FolioCharge[],
-  predicate: (charge: FolioCharge) => boolean,
+  charges: ChargeWithCategory[],
+  predicate: (charge: ChargeWithCategory) => boolean,
 ): number {
   return Number(
     charges
@@ -415,7 +542,7 @@ export function presentReservation(reservation: ReservationFull) {
     notes: reservation.notes,
     checkedInAt: reservation.checkedInAt,
     checkedOutAt: reservation.checkedOutAt,
-    charges,
+    charges: charges.map(presentCharge),
     payments: payments.map(presentPayment),
     bill,
     totalCharges: bill.total,

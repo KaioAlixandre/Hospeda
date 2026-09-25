@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { legacyTypeFor } from "../lib/chargeCategories.js";
+import { presentCharge } from "../lib/presenters.js";
 import { prisma } from "../lib/prisma.js";
 import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
@@ -8,11 +10,16 @@ import {
   checkOutSchema,
   confirmReservationSchema,
   createChargeSchema,
+  createChargesBatchSchema,
   createReservationSchema,
   extendStaySchema,
   updateChargeSchema,
   updateReservationSchema,
 } from "../validators/schemas.js";
+import {
+  createFolioCharge,
+  createFolioChargesBatch,
+} from "../services/folioCharges.js";
 import {
   cancelReservation,
   checkInReservation,
@@ -193,6 +200,7 @@ async function loadReservationCharge(hotelId: string, reservationId: string, cha
 
   const charge = await prisma.folioCharge.findFirst({
     where: { id: chargeId, reservationId: reservation.id },
+    include: { category: true },
   });
   if (!charge) throw new AppError(404, "Charge not found");
 
@@ -211,6 +219,29 @@ function assertManualChargeEditable(type: string) {
   }
 }
 
+reservationsRouter.post("/:id/charges/batch", async (req, res, next) => {
+  try {
+    const hotelId = hotelIdFrom(req);
+    const data = createChargesBatchSchema.parse(req.body);
+    const reservation = await prisma.reservation.findFirst({
+      where: { id: req.params.id, hotelId },
+    });
+    if (!reservation) throw new AppError(404, "Reservation not found");
+    if (reservation.status !== "CONFIRMED") {
+      throw new AppError(400, "Cannot add charges to this reservation");
+    }
+
+    const charges = await createFolioChargesBatch(
+      hotelId,
+      reservation.id,
+      data.items,
+    );
+    res.status(201).json(charges);
+  } catch (err) {
+    next(err);
+  }
+});
+
 reservationsRouter.post("/:id/charges", async (req, res, next) => {
   try {
     const hotelId = hotelIdFrom(req);
@@ -222,16 +253,8 @@ reservationsRouter.post("/:id/charges", async (req, res, next) => {
     if (reservation.status !== "CONFIRMED") {
       throw new AppError(400, "Cannot add charges to this reservation");
     }
-    if (data.type === "ROOM") {
-      throw new AppError(400, "Use a diária automática da reserva para cobranças de quarto");
-    }
 
-    const charge = await prisma.folioCharge.create({
-      data: {
-        reservationId: reservation.id,
-        ...data,
-      },
-    });
+    const charge = await createFolioCharge(hotelId, reservation.id, data);
     res.status(201).json(charge);
   } catch (err) {
     next(err);
@@ -244,8 +267,8 @@ reservationsRouter.patch("/:id/charges/:chargeId", async (req, res, next) => {
     const data = updateChargeSchema.parse(req.body);
     const { reservation, charge } = await loadReservationCharge(
       hotelId,
-      req.params.id,
-      req.params.chargeId,
+      req.params.id!,
+      req.params.chargeId!,
     );
 
     if (reservation.status === "CANCELLED") {
@@ -257,17 +280,41 @@ reservationsRouter.patch("/:id/charges/:chargeId", async (req, res, next) => {
       assertManualChargeEditable(data.type);
     }
 
+    let categoryId = data.categoryId;
+    let type = data.type;
+    if (categoryId !== undefined) {
+      const category = await prisma.chargeCategory.findFirst({
+        where: { id: categoryId, hotelId, active: true },
+      });
+      if (!category) throw new AppError(404, "Categoria não encontrada");
+      type = legacyTypeFor(category.group);
+    }
+
+    const quantity = data.quantity ?? charge.quantity;
+    const amount =
+      data.amount !== undefined ? data.amount : Number(charge.amount);
+    const unitPrice =
+      data.amount !== undefined || data.quantity !== undefined
+        ? Number((amount / quantity).toFixed(2))
+        : charge.unitPrice != null
+          ? Number(charge.unitPrice)
+          : amount;
+
     const updated = await prisma.folioCharge.update({
       where: { id: charge.id },
       data: {
-        ...(data.type !== undefined ? { type: data.type } : {}),
+        ...(type !== undefined ? { type } : {}),
+        ...(categoryId !== undefined ? { categoryId } : {}),
         ...(data.description !== undefined
           ? { description: data.description.trim() }
           : {}),
         ...(data.amount !== undefined ? { amount: data.amount } : {}),
+        ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+        unitPrice,
       },
+      include: { category: true },
     });
-    res.json(updated);
+    res.json(presentCharge(updated));
   } catch (err) {
     next(err);
   }
@@ -278,8 +325,8 @@ reservationsRouter.delete("/:id/charges/:chargeId", async (req, res, next) => {
     const hotelId = hotelIdFrom(req);
     const { reservation, charge } = await loadReservationCharge(
       hotelId,
-      req.params.id,
-      req.params.chargeId,
+      req.params.id!,
+      req.params.chargeId!,
     );
 
     if (reservation.status === "CANCELLED") {

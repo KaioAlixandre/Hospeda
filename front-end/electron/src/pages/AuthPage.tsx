@@ -13,7 +13,7 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const canEditApi = Boolean(window.hospeda?.apiConfig?.save);
+  const canEditApi = Boolean(window.staydesck?.apiConfig?.save);
   const [apiUrl, setApiUrl] = useState(API_BASE_URL);
   const [apiEditable, setApiEditable] = useState(canEditApi);
   const [apiBusy, setApiBusy] = useState(false);
@@ -21,8 +21,8 @@ export function AuthPage() {
   const [showApiConfig, setShowApiConfig] = useState(false);
 
   useEffect(() => {
-    if (!window.hospeda?.apiConfig?.get) return;
-    void window.hospeda.apiConfig.get().then((cfg) => {
+    if (!window.staydesck?.apiConfig?.get) return;
+    void window.staydesck.apiConfig.get().then((cfg) => {
       setApiUrl(cfg.apiBaseUrl);
       setApiEditable(cfg.editable);
     });
@@ -47,12 +47,12 @@ export function AuthPage() {
 
   async function saveApiUrl(event: FormEvent) {
     event.preventDefault();
-    if (!window.hospeda?.apiConfig?.save || !apiEditable) return;
+    if (!window.staydesck?.apiConfig?.save || !apiEditable) return;
     setApiBusy(true);
     setApiMessage(null);
     setError(null);
     try {
-      await window.hospeda.apiConfig.save(apiUrl);
+      await window.staydesck.apiConfig.save(apiUrl);
       setApiMessage("Endereço salvo neste computador. Recarregando…");
       window.setTimeout(() => window.location.reload(), 900);
     } catch (err) {
@@ -68,7 +68,7 @@ export function AuthPage() {
         <div className="auth-brand">
           <span className="brand-mark">H</span>
           <div>
-            <strong>Hospeda</strong>
+            <strong>StayDesck</strong>
             <p>Gestão de hospedagem</p>
           </div>
         </div>
@@ -189,7 +189,7 @@ export function AuthPage() {
                 </Field>
                 {!apiEditable ? (
                   <p className="muted">
-                    Definido por HOSPEDA_API_URL — não editável aqui.
+                    Definido por STAYDESCK_API_URL — não editável aqui.
                   </p>
                 ) : (
                   <Button type="submit" loading={apiBusy}>

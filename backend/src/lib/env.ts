@@ -3,7 +3,7 @@ const MIN_SECRET_LENGTH = 32;
 /** Segredos que já circularam em exemplos/configs e não podem ir para produção. */
 const BLOCKED_SECRETS = new Set([
   "change-me-in-production",
-  "hospeda-dev-secret-change-me",
+  "staydesck-dev-secret-change-me",
   "secret",
   "changeme",
 ]);

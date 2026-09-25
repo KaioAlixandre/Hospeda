@@ -1,5 +1,5 @@
 {
-  "name": "hospeda-backend",
+  "name": "staydesck-backend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,7 @@
     "plans:check": "tsx src/scripts/plansCheck.ts",
     "reservations:expire": "tsx src/scripts/expireReservations.ts",
     "slugs:backfill": "tsx src/scripts/backfillSlugs.ts",
+    "charges:backfill": "tsx src/scripts/backfillChargeCategories.ts",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f api"

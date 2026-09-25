@@ -129,23 +129,118 @@ const chargeTypeEnum = z.enum([
   "DISCOUNT",
 ]);
 
-export const createChargeSchema = z.object({
-  type: chargeTypeEnum,
+const chargeGroupEnum = z.enum(["CONSUMPTION", "SERVICE", "DISCOUNT"]);
+
+export const createChargeCategorySchema = z.object({
+  name: z.string().min(1).max(80),
+  group: chargeGroupEnum,
+  icon: z.string().min(1).max(40).nullable().optional(),
+  position: z.number().int().min(0).optional(),
+});
+
+export const updateChargeCategorySchema = z
+  .object({
+    name: z.string().min(1).max(80).optional(),
+    group: chargeGroupEnum.optional(),
+    icon: z.string().min(1).max(40).nullable().optional(),
+    active: z.boolean().optional(),
+    position: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      data.group !== undefined ||
+      data.icon !== undefined ||
+      data.active !== undefined ||
+      data.position !== undefined,
+    { message: "At least one field must be provided" },
+  );
+
+export const createProductSchema = z.object({
+  categoryId: z.string().min(1),
+  name: z.string().min(1).max(120),
+  code: z.string().max(60).nullable().optional(),
+  price: z.number().positive(),
+  unit: z.string().max(20).nullable().optional(),
+  position: z.number().int().min(0).optional(),
+});
+
+export const updateProductSchema = z
+  .object({
+    categoryId: z.string().min(1).optional(),
+    name: z.string().min(1).max(120).optional(),
+    code: z.string().max(60).nullable().optional(),
+    price: z.number().positive().optional(),
+    unit: z.string().max(20).nullable().optional(),
+    active: z.boolean().optional(),
+    position: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (data) =>
+      data.categoryId !== undefined ||
+      data.name !== undefined ||
+      data.code !== undefined ||
+      data.price !== undefined ||
+      data.unit !== undefined ||
+      data.active !== undefined ||
+      data.position !== undefined,
+    { message: "At least one field must be provided" },
+  );
+
+export const createProductsBatchSchema = z.object({
+  categoryId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(120),
+        price: z.number().positive(),
+        code: z.string().max(60).nullable().optional(),
+        unit: z.string().max(20).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+
+const productChargeSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().positive().max(99),
+  /// Sobrescreve a descrição só na exibição ("Coca-Cola — cortesia")
+  note: z.string().max(120).optional(),
+});
+
+const manualChargeSchema = z.object({
+  categoryId: z.string().min(1),
   description: z.string().min(1),
   amount: z.number().positive(),
+  quantity: z.number().int().positive().max(99).default(1),
+});
+
+export const createChargeSchema = z.union([
+  productChargeSchema,
+  manualChargeSchema,
+]);
+
+export const createChargesBatchSchema = z.object({
+  items: z.array(createChargeSchema).min(1).max(50),
 });
 
 export const updateChargeSchema = z
   .object({
-    type: chargeTypeEnum.optional(),
+    categoryId: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
     amount: z.number().positive().optional(),
+    quantity: z.number().int().positive().max(99).optional(),
+    /// Legado: ainda aceito enquanto o front antigo existir
+    type: chargeTypeEnum.optional(),
   })
   .refine(
     (data) =>
-      data.type !== undefined ||
+      data.categoryId !== undefined ||
       data.description !== undefined ||
-      data.amount !== undefined,
+      data.amount !== undefined ||
+      data.quantity !== undefined ||
+      data.type !== undefined,
     { message: "At least one field must be provided" },
   );
 

@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { HospedaFooter, LoadingBlock } from "../components/HotelBrand";
+import { StayDesckFooter, LoadingBlock } from "../components/HotelBrand";
 import { useHotel } from "../hooks/useHotel";
 import { phoneHref, whatsappHref } from "../lib/format";
 
@@ -46,7 +46,7 @@ export function UnavailablePage({ generic }: Props) {
           </div>
         ) : null}
       </div>
-      <HospedaFooter />
+      <StayDesckFooter />
     </main>
   );
 }

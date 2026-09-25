@@ -11,20 +11,20 @@ type ApiConfig = {
 };
 
 const SOURCE_LABEL: Record<ApiConfig["source"], string> = {
-  env: "variável de ambiente (HOSPEDA_API_URL)",
+  env: "variável de ambiente (STAYDESCK_API_URL)",
   file: "arquivo salvo neste computador",
   default: "padrão (localhost)",
 };
 
 function isElectronShell() {
   return (
-    Boolean(window.hospeda?.isElectron) ||
+    Boolean(window.staydesck?.isElectron) ||
     /Electron/i.test(navigator.userAgent)
   );
 }
 
 function hasApiConfig() {
-  return Boolean(window.hospeda?.apiConfig?.get);
+  return Boolean(window.staydesck?.apiConfig?.get);
 }
 
 export function ServerSettingsTab() {
@@ -40,14 +40,14 @@ export function ServerSettingsTab() {
       setLoading(false);
       setError(
         isElectronShell()
-          ? "Módulo de servidor não carregou. Feche o Hospeda por completo e abra de novo (o preload só atualiza ao reiniciar)."
-          : "Configuração do servidor disponível apenas no aplicativo desktop Hospeda (Electron).",
+          ? "Módulo de servidor não carregou. Feche o StayDesck por completo e abra de novo (o preload só atualiza ao reiniciar)."
+          : "Configuração do servidor disponível apenas no aplicativo desktop StayDesck (Electron).",
       );
       return;
     }
     setLoading(true);
     try {
-      const data = await window.hospeda!.apiConfig!.get();
+      const data = await window.staydesck!.apiConfig!.get();
       setConfig(data);
       setUrl(data.apiBaseUrl);
       setError(null);
@@ -69,7 +69,7 @@ export function ServerSettingsTab() {
     setError(null);
     setMessage(null);
     try {
-      const result = await window.hospeda!.apiConfig!.save(url);
+      const result = await window.staydesck!.apiConfig!.save(url);
       setMessage(
         result.restartRequired
           ? "Endereço salvo. Recarregando para aplicar…"
@@ -127,7 +127,7 @@ export function ServerSettingsTab() {
         <div className="print-status-card">
           <strong>Definido pela instalação</strong>
           <p className="muted">
-            A variável de ambiente <code>HOSPEDA_API_URL</code> está definida e
+            A variável de ambiente <code>STAYDESCK_API_URL</code> está definida e
             tem prioridade. Remova-a do atalho ou do ambiente para editar aqui.
           </p>
         </div>

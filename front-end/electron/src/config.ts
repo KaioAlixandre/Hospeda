@@ -1,8 +1,8 @@
-/** URL padrão da API em produção (VPS). Em dev, use HOSPEDA_API_URL ou a aba Servidor. */
+/** URL padrão da API em produção (VPS). Em dev, use STAYDESCK_API_URL ou a aba Servidor. */
 export const FALLBACK_API_URL = "http://216.22.5.245:3333";
 
 export const API_BASE_URL =
-  window.hospeda?.apiBaseUrl ||
+  window.staydesck?.apiBaseUrl ||
   import.meta.env.VITE_API_URL ||
   FALLBACK_API_URL;
 

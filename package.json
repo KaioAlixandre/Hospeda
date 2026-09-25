@@ -1,8 +1,8 @@
 {
-  "name": "hospeda",
+  "name": "staydesck",
   "version": "1.0.0",
   "private": true,
-  "description": "Hospeda — PMS (API + Electron)",
+  "description": "StayDesck — PMS (API + Electron)",
   "scripts": {
     "dev:backend": "npm run dev --prefix backend",
     "dev:app": "npm run dev --prefix front-end/electron",

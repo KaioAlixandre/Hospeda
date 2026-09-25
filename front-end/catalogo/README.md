@@ -1,6 +1,6 @@
-# Hospeda Catálogo
+# StayDesck Catálogo
 
-SPA pública de reservas online (`hospeda-catalogo`). Visitantes escolhem datas, veem disponibilidade e enviam um pedido de reserva — sem login e sem CPF.
+SPA pública de reservas online (`staydesck-catalogo`). Visitantes escolhem datas, veem disponibilidade e enviam um pedido de reserva — sem login e sem CPF.
 
 ## Desenvolvimento
 
@@ -15,7 +15,7 @@ Variável de ambiente:
 
 | Variável       | Padrão                 | Descrição        |
 |----------------|------------------------|------------------|
-| `VITE_API_URL` | `http://localhost:3333` | URL da API Hospeda |
+| `VITE_API_URL` | `http://localhost:3333` | URL da API StayDesck |
 
 Rotas:
 
@@ -34,15 +34,32 @@ Artefatos em `dist/`. Preview local: `npm run preview`.
 
 ## Deploy (Caddy)
 
-Exemplo de site estático com fallback SPA:
+Domínio de produção: **staydesk.com.br**.
+
+DNS (no registrador do domínio):
+
+| Tipo | Nome | Valor |
+|------|------|--------|
+| A    | `@`  | IP da VPS |
+| A    | `www`| IP da VPS (ou CNAME → staydesk.com.br) |
+
+Caddy (SPA + HTTPS):
 
 ```
-reservas.seudominio.com.br {
-  root * /var/www/hospeda-catalogo
+staydesk.com.br, www.staydesk.com.br {
+  root * /var/www/staydesck-catalogo
   encode gzip
   try_files {path} /index.html
   file_server
 }
 ```
+
+Build com a API de produção:
+
+```bash
+VITE_API_URL=https://api.seudominio.com.br npm run build
+```
+
+Na API, defina `CATALOG_PUBLIC_BASE_URL=https://staydesk.com.br` (links `/h/:slug` e QR Code).
 
 Veja também `scripts/deploy.example.sh` para um rsync de exemplo.

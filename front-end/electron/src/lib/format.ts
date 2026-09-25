@@ -5,6 +5,36 @@ export function brl(value: number | string): string {
   });
 }
 
+/** Digits-only → "12,34" while typing a BRL amount. */
+export function moneyInputMask(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (!digits) return "";
+  const cents = Number(digits);
+  const reais = Math.floor(cents / 100);
+  const centavos = String(cents % 100).padStart(2, "0");
+  return `${reais.toLocaleString("pt-BR")},${centavos}`;
+}
+
+/** Parse "12,34" / "R$ 12,34" / "12.34" → number. */
+export function parseMoneyInput(raw: string): number {
+  const cleaned = raw.replace(/[^\d,.-]/g, "").trim();
+  if (!cleaned) return NaN;
+  if (cleaned.includes(",")) {
+    const normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    return Number(normalized);
+  }
+  return Number(cleaned);
+}
+
+/** Format a number for a money input field (pt-BR). */
+export function formatMoneyInput(value: number): string {
+  if (!Number.isFinite(value)) return "";
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export function dateBR(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);

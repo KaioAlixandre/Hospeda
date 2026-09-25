@@ -1,4 +1,4 @@
-# Assinaturas Stripe (Hospeda)
+# Assinaturas Stripe (StayDesck)
 
 ## 1. No Dashboard Stripe
 
@@ -26,7 +26,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_SIMPLES=price_...
 STRIPE_PRICE_PRO=price_...
 STRIPE_PRICE_PLUS=price_...
-BILLING_RETURN_URL=https://reservas.seudominio.com.br
+BILLING_RETURN_URL=https://staydesk.com.br
 ```
 
 Sem essas variáveis, o app continua só com upgrade via WhatsApp/admin.

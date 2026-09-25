@@ -31,7 +31,7 @@ function CatalogPlanUpsell() {
   function handleWhatsApp() {
     const hotelName = hotel?.name ?? "meu hotel";
     openSalesWhatsApp(
-      `Olá! Quero o plano Plus do Hospeda (catálogo online) para o hotel ${hotelName}.`,
+      `Olá! Quero o plano Plus do StayDesck (catálogo online) para o hotel ${hotelName}.`,
     );
   }
 
@@ -40,8 +40,8 @@ function CatalogPlanUpsell() {
     setError(null);
     try {
       const { url } = await api.billing.checkout("PLUS");
-      if (window.hospeda?.openExternal) {
-        await window.hospeda.openExternal(url);
+      if (window.staydesck?.openExternal) {
+        await window.staydesck.openExternal(url);
       } else {
         window.open(url, "_blank", "noopener,noreferrer");
       }

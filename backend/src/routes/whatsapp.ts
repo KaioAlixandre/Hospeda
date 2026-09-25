@@ -170,7 +170,7 @@ whatsappRouter.post("/setup", async (req, res, next) => {
 
     if (!instanceId || !token) {
       const created = await sendApi.createInstance(
-        `Hospeda - ${hotel.name || hotel.id}`,
+        `StayDesck - ${hotel.name || hotel.id}`,
       );
       instanceId = created.id;
       token = created.token;

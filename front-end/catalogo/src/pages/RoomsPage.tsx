@@ -8,7 +8,7 @@ import {
 import {
   ErrorBanner,
   HotelBrand,
-  HospedaFooter,
+  StayDesckFooter,
   LoadingBlock,
 } from "../components/HotelBrand";
 import { SearchForm, type SearchValues } from "../components/SearchForm";
@@ -111,7 +111,7 @@ export function RoomsPage() {
     return (
       <main className="page page-centered">
         <ErrorBanner message={hotelState.error} />
-        <HospedaFooter />
+        <StayDesckFooter />
       </main>
     );
   }
@@ -200,7 +200,7 @@ export function RoomsPage() {
           })}
         </ul>
 
-        <HospedaFooter />
+        <StayDesckFooter />
       </div>
     </main>
   );

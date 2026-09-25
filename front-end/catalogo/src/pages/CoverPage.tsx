@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ErrorBanner,
   HotelBrand,
-  HospedaFooter,
+  StayDesckFooter,
   LoadingBlock,
 } from "../components/HotelBrand";
 import { SearchForm, type SearchValues } from "../components/SearchForm";
@@ -25,7 +25,7 @@ export function CoverPage() {
     return (
       <main className="page page-centered">
         <ErrorBanner message={state.error} />
-        <HospedaFooter />
+        <StayDesckFooter />
       </main>
     );
   }
@@ -60,7 +60,7 @@ export function CoverPage() {
             <p>{hotel.rules}</p>
           </section>
         ) : null}
-        <HospedaFooter />
+        <StayDesckFooter />
       </div>
     </main>
   );

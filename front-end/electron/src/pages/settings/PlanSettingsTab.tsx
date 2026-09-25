@@ -73,8 +73,8 @@ function statusLabel(status: string | undefined): string {
 }
 
 async function openBillingUrl(url: string) {
-  if (window.hospeda?.openExternal) {
-    await window.hospeda.openExternal(url);
+  if (window.staydesck?.openExternal) {
+    await window.staydesck.openExternal(url);
     return;
   }
   window.open(url, "_blank", "noopener,noreferrer");
@@ -101,7 +101,7 @@ export function PlanSettingsTab() {
   function handleWhatsAppUpgrade() {
     const hotelName = hotel?.name ?? "meu hotel";
     openSalesWhatsApp(
-      `Olá! Quero fazer upgrade do plano Hospeda. Hotel: ${hotelName}. Plano atual: ${label} (${price}).`,
+      `Olá! Quero fazer upgrade do plano StayDesck. Hotel: ${hotelName}. Plano atual: ${label} (${price}).`,
     );
   }
 

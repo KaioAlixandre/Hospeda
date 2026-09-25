@@ -76,9 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     function onUnauthorized() {
       setHotel(null);
     }
-    window.addEventListener("hospeda:unauthorized", onUnauthorized);
+    window.addEventListener("staydesck:unauthorized", onUnauthorized);
     return () =>
-      window.removeEventListener("hospeda:unauthorized", onUnauthorized);
+      window.removeEventListener("staydesck:unauthorized", onUnauthorized);
   }, []);
 
   const login = useCallback(async (phone: string, password: string) => {

@@ -2,8 +2,10 @@ import {
   civilDateToUtcMidnight,
   hotelDayIso,
   hotelDayRange,
+  addUtcDays,
 } from "../lib/datetime.js";
 import { prisma } from "../lib/prisma.js";
+import { getTopProducts } from "./topProducts.js";
 
 function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", {
@@ -40,6 +42,7 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
     paymentsToday,
     createdToday,
     cancelledToday,
+    topProducts,
   ] = await Promise.all([
     prisma.room.groupBy({
       by: ["status"],
@@ -98,6 +101,7 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
         updatedAt: { gte: dayStart, lt: dayEnd },
       },
     }),
+    getTopProducts(hotelId, addUtcDays(dayStart, -30), dayEnd, 8),
   ]);
 
   const [arrivalsToday, departuresToday] = await Promise.all([
@@ -296,6 +300,10 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
         checkedOutAt: reservation.checkedOutAt,
       })),
       guestsInHouse: inHouseReservations.map(mapStay),
+    },
+    topProducts: {
+      label: "Mais vendidos (30 dias)",
+      items: topProducts,
     },
   };
 }

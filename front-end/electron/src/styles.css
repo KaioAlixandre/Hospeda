@@ -1388,6 +1388,18 @@ select:focus {
   min-height: 280px;
 }
 
+.guest-picker-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.guest-picker-toolbar .guest-picker-search {
+  flex: 1;
+  min-width: 180px;
+}
+
 .guest-picker-search {
   display: flex;
   align-items: center;
@@ -3915,4 +3927,246 @@ select:focus {
 .settings-field textarea:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
+}
+
+/* Produtos */
+.products-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.products-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+}
+
+.products-search input {
+  border: 0;
+  outline: none;
+  flex: 1;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+}
+
+.products-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.products-group-hint {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 280px;
+}
+
+.products-price-hint {
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.row-inactive {
+  opacity: 0.55;
+}
+
+.inline-price-edit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline-price-edit input {
+  width: 110px;
+}
+
+button.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.import-preview {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--accent));
+}
+
+.import-preview ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Lançamentos por produto */
+.charges-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.charges-tabs button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.charges-tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.charges-category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.charges-category-pills .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.charges-category-pills .chip.active {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.charges-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  margin-bottom: 12px;
+}
+
+.charges-product-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+
+.charges-product-btn:hover {
+  border-color: var(--accent);
+}
+
+.charges-product-btn strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.charges-product-btn span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.charges-cart {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, #000);
+}
+
+.charges-cart > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.charges-cart-qty {
+  align-items: center;
+}
+
+.charges-cart-qty input {
+  width: 48px;
+  text-align: center;
+}
+
+.charges-cart-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.charges-list-title {
+  margin: 18px 0 8px;
+  font-size: 14px;
+}
+
+.charges-product-search {
+  margin-bottom: 4px;
+}
+
+.top-products-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.top-products-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.top-products-list li:last-child {
+  border-bottom: 0;
 }

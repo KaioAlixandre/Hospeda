@@ -39,6 +39,13 @@ enum ChargeType {
   DISCOUNT
 }
 
+/// Onde o lançamento entra na conta — fixo, é o que o buildBill enxerga
+enum ChargeGroup {
+  CONSUMPTION
+  SERVICE
+  DISCOUNT
+}
+
 enum PaymentMethod {
   PIX
   CARD
@@ -113,12 +120,14 @@ model Hotel {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  roomTypes    RoomType[]
-  rooms        Room[]
-  guests       Guest[]
-  reservations Reservation[]
-  zeladores    Zelador[]
-  planEvents   PlanEvent[]
+  roomTypes         RoomType[]
+  rooms             Room[]
+  guests            Guest[]
+  reservations      Reservation[]
+  zeladores         Zelador[]
+  planEvents        PlanEvent[]
+  chargeCategories  ChargeCategory[]
+  products          Product[]
 
   @@index([name])
 }
@@ -263,18 +272,74 @@ model Reservation {
   @@index([expiresAt])
 }
 
+/// Categoria de lançamento, cadastrada pelo hotel
+model ChargeCategory {
+  id        String      @id @default(cuid())
+  hotelId   String
+  name      String
+  group     ChargeGroup
+  /// Chave de ícone que o app resolve (mesmo padrão do ROOM_STATUS_ICON)
+  icon      String?
+  active    Boolean     @default(true)
+  position  Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  hotel    Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  products Product[]
+  charges  FolioCharge[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  hotelId    String
+  categoryId String
+  name       String
+  /// Código interno ou de barras, opcional
+  code       String?
+  price      Decimal  @db.Decimal(10, 2)
+  /// Unidade mostrada na tela: un, gf, kg, porção
+  unit       String?
+  active     Boolean  @default(true)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  hotel    Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  category ChargeCategory @relation(fields: [categoryId], references: [id])
+  charges  FolioCharge[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+  @@index([categoryId])
+  @@index([active])
+}
+
 model FolioCharge {
   id            String     @id @default(cuid())
   reservationId String
   type          ChargeType
   description   String
   amount        Decimal    @db.Decimal(10, 2)
+  categoryId    String?
+  /// null = lançamento digitado à mão
+  productId     String?
+  quantity      Int        @default(1)
+  /// Preço congelado no momento do lançamento
+  unitPrice     Decimal?   @db.Decimal(10, 2)
   postedAt      DateTime   @default(now())
   createdAt     DateTime   @default(now())
 
-  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservation Reservation     @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  category    ChargeCategory? @relation(fields: [categoryId], references: [id])
+  product     Product?        @relation(fields: [productId], references: [id])
 
   @@index([reservationId])
+  @@index([categoryId])
+  @@index([productId])
 }
 
 /// Zelador da equipe de limpeza
