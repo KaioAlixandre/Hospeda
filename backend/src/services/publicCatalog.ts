@@ -2,6 +2,7 @@ import { hasFeature } from "../lib/plans.js";
 import {
   presentPublicAvailabilityOption,
   presentPublicHotel,
+  presentPublicRoomTypeDetail,
   presentPublicRoomTypes,
 } from "../lib/publicPresenters.js";
 import { prisma } from "../lib/prisma.js";
@@ -46,6 +47,56 @@ export async function getPublicRooms(slug: string) {
     include: { roomType: true },
   });
   return { rooms: presentPublicRoomTypes(rooms) };
+}
+
+export async function getPublicRoomType(
+  slug: string,
+  roomTypeId: string,
+  params?: { checkInDate?: string; checkOutDate?: string; guests?: number },
+) {
+  const hotel = await loadPublicCatalogHotel(slug);
+  const rooms = await prisma.room.findMany({
+    where: {
+      hotelId: hotel.id,
+      roomTypeId,
+      status: { not: "MAINTENANCE" },
+    },
+    include: { roomType: true },
+  });
+
+  const room = presentPublicRoomTypeDetail(rooms, roomTypeId);
+  if (!room) throw new AppError(404, "Tipo de quarto não encontrado");
+
+  let availability: {
+    available: boolean;
+    nights: number;
+    nightlyRate: number;
+    total: number;
+  } | null = null;
+
+  if (params?.checkInDate && params?.checkOutDate) {
+    const avail = await getPublicAvailability(slug, {
+      checkInDate: params.checkInDate,
+      checkOutDate: params.checkOutDate,
+      guests: params.guests ?? 1,
+    });
+    const match = avail.options.find((o) => o.roomTypeId === roomTypeId);
+    availability = match
+      ? {
+          available: true,
+          nights: match.nights,
+          nightlyRate: match.nightlyRate,
+          total: match.total,
+        }
+      : {
+          available: false,
+          nights: avail.nights,
+          nightlyRate: room.priceFrom,
+          total: Number((room.priceFrom * avail.nights).toFixed(2)),
+        };
+  }
+
+  return { room, availability };
 }
 
 export async function getPublicAvailability(
@@ -100,9 +151,15 @@ export async function createPublicReservation(
     checkOutDate: string;
     guests: number;
     roomTypeId: string;
-    guest: {
+    catalogUser: {
+      id: string;
+      email: string;
       name: string;
-      phone: string;
+      phone: string | null;
+    };
+    guest?: {
+      name?: string;
+      phone?: string;
       email?: string;
       city?: string;
     };
@@ -121,10 +178,31 @@ export async function createPublicReservation(
   }
 
   const hotel = await loadPublicCatalogHotel(slug);
-  const phoneDigits = input.guest.phone.replace(/\D/g, "");
-  if (phoneDigits.length < 10) {
-    throw new AppError(400, "Telefone inválido");
+  const guestName = (input.guest?.name ?? input.catalogUser.name).trim();
+  const phoneDigits = (
+    input.guest?.phone ??
+    input.catalogUser.phone ??
+    ""
+  ).replace(/\D/g, "");
+  if (!guestName) {
+    throw new AppError(400, "Informe o nome completo");
   }
+  if (phoneDigits.length < 10) {
+    throw new AppError(400, "Informe um WhatsApp válido");
+  }
+
+  if (!input.catalogUser.phone || input.catalogUser.phone !== phoneDigits) {
+    await prisma.catalogUser.update({
+      where: { id: input.catalogUser.id },
+      data: {
+        phone: phoneDigits,
+        name: guestName,
+      },
+    });
+  }
+
+  const guestEmail =
+    input.guest?.email?.trim() || input.catalogUser.email || null;
 
   const availability = await getPublicAvailability(slug, {
     checkInDate: input.checkInDate,
@@ -172,7 +250,10 @@ export async function createPublicReservation(
   let guest = await prisma.guest.findFirst({
     where: {
       hotelId: hotel.id,
-      phone: { contains: phoneDigits.slice(-11) },
+      OR: [
+        { phone: { contains: phoneDigits.slice(-11) } },
+        ...(guestEmail ? [{ email: guestEmail }] : []),
+      ],
     },
   });
 
@@ -180,11 +261,21 @@ export async function createPublicReservation(
     guest = await prisma.guest.create({
       data: {
         hotelId: hotel.id,
-        name: input.guest.name.trim(),
+        name: guestName,
         phone: phoneDigits,
-        email: input.guest.email?.trim() || null,
-        city: input.guest.city?.trim() || null,
+        email: guestEmail,
+        city: input.guest?.city?.trim() || null,
         cpf: null,
+      },
+    });
+  } else {
+    guest = await prisma.guest.update({
+      where: { id: guest.id },
+      data: {
+        name: guestName,
+        phone: phoneDigits,
+        email: guestEmail ?? guest.email,
+        city: input.guest?.city?.trim() || guest.city,
       },
     });
   }
@@ -204,6 +295,7 @@ export async function createPublicReservation(
     status: "PENDING",
     source: "ONLINE",
     expiresAt,
+    catalogUserId: input.catalogUser.id,
   });
 
   const total = Number(

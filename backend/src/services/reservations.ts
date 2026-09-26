@@ -19,6 +19,7 @@ import {
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 import {
+  notifyReservationCancelled,
   notifyReservationConfirmed,
   notifyZeladoresRoomCleaning,
   type MessageNotification,
@@ -30,6 +31,13 @@ async function withConfirmationMessage<T extends PresentedReservation>(
   presented: T,
 ): Promise<T & { notification: MessageNotification }> {
   const notification = await notifyReservationConfirmed(presented);
+  return { ...presented, notification };
+}
+
+async function withCancellationMessage<T extends PresentedReservation>(
+  presented: T,
+): Promise<T & { notification: MessageNotification }> {
+  const notification = await notifyReservationCancelled(presented);
   return { ...presented, notification };
 }
 
@@ -122,9 +130,69 @@ async function setRoomsStatus(
 }
 
 /**
+ * Status do quadro derivado das reservas ativas:
+ * - hospedado → OCCUPIED
+ * - pré-reserva (PENDING) ou confirmada (CONFIRMED) → RESERVED
+ * - sem reserva ativa → AVAILABLE
+ * Não altera CLEANING nem MAINTENANCE (estados operacionais).
+ */
+export async function syncRoomsBoardStatus(
+  hotelId: string,
+  roomIds: string[],
+  options: {
+    excludeReservationId?: string | null;
+    tx?: TxClient;
+  } = {},
+) {
+  const db = options.tx ?? prisma;
+  const uniqueIds = [...new Set(roomIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return;
+
+  const others = await db.reservation.findMany({
+    where: {
+      hotelId,
+      ...(options.excludeReservationId
+        ? { id: { not: options.excludeReservationId } }
+        : {}),
+      status: { in: [...ACTIVE_STATUSES] },
+    },
+    select: {
+      roomId: true,
+      roomSelection: true,
+      checkedInAt: true,
+      checkedOutAt: true,
+    },
+  });
+
+  for (const roomId of uniqueIds) {
+    const room = await db.room.findUnique({ where: { id: roomId } });
+    if (!room) continue;
+    if (room.status === "CLEANING" || room.status === "MAINTENANCE") continue;
+
+    const holders = others.filter((reservation) =>
+      reservationRoomIds(reservation).includes(roomId),
+    );
+
+    const inHouse = holders.some((r) => r.checkedInAt && !r.checkedOutAt);
+    const nextStatus = inHouse
+      ? "OCCUPIED"
+      : holders.length > 0
+        ? "RESERVED"
+        : "AVAILABLE";
+
+    if (room.status !== nextStatus) {
+      await db.room.update({
+        where: { id: roomId },
+        data: { status: nextStatus },
+      });
+    }
+  }
+}
+
+/**
  * Marca como RESERVED sem atropelar a situação de hoje: quarto ocupado,
  * em limpeza ou em manutenção mantém o status atual, porque a reserva
- * confirmada pode ser para um período futuro.
+ * pode ser para um período futuro.
  */
 async function holdRooms(roomIds: string[], tx: TxClient) {
   for (const roomId of roomIds) {
@@ -140,7 +208,8 @@ async function holdRooms(roomIds: string[], tx: TxClient) {
 
 /**
  * Devolve o quarto ao status correto ao soltar uma reserva. Cancelar uma
- * reserva futura não pode liberar o quarto de quem está hospedado.
+ * reserva futura não pode liberar o quarto de quem está hospedado, nem
+ * apagar outra pré-reserva/confirmação ainda ativa no mesmo UH.
  */
 async function releaseRooms(
   hotelId: string,
@@ -148,47 +217,22 @@ async function releaseRooms(
   excludeReservationId: string,
   tx: TxClient,
 ) {
-  if (roomIds.length === 0) return;
-
-  const now = new Date();
-  const others = await tx.reservation.findMany({
-    where: {
-      hotelId,
-      id: { not: excludeReservationId },
-      status: { in: ["PENDING", "CONFIRMED"] },
-    },
-    select: {
-      roomId: true,
-      roomSelection: true,
-      status: true,
-      checkedInAt: true,
-      checkedOutAt: true,
-      checkInDate: true,
-      checkOutDate: true,
-    },
+  await syncRoomsBoardStatus(hotelId, roomIds, {
+    excludeReservationId,
+    tx,
   });
+}
 
-  for (const roomId of roomIds) {
-    const holders = others.filter((reservation) =>
-      reservationRoomIds(reservation).includes(roomId),
-    );
-
-    // Alguém hospedado no quarto: continua OCCUPIED.
-    if (holders.some((r) => r.checkedInAt && !r.checkedOutAt)) continue;
-
-    // Reserva confirmada cobrindo hoje: continua RESERVED.
-    const heldToday = holders.some(
-      (r) =>
-        r.status === "CONFIRMED" &&
-        r.checkInDate <= now &&
-        r.checkOutDate > now,
-    );
-
-    await tx.room.update({
-      where: { id: roomId },
-      data: { status: heldToday ? "RESERVED" : "AVAILABLE" },
-    });
-  }
+/** Recalcula o quadro de todos os quartos do hotel (corrige desvios). */
+export async function reconcileHotelRoomsBoard(hotelId: string) {
+  const rooms = await prisma.room.findMany({
+    where: { hotelId },
+    select: { id: true },
+  });
+  await syncRoomsBoardStatus(
+    hotelId,
+    rooms.map((room) => room.id),
+  );
 }
 
 /**
@@ -269,6 +313,7 @@ export async function createReservation(input: {
   status?: "PENDING" | "CONFIRMED";
   source?: "DESK" | "ONLINE";
   expiresAt?: Date | null;
+  catalogUserId?: string | null;
 }) {
   const checkIn = toDateOnly(input.checkInDate);
   const checkOut = toDateOnly(input.checkOutDate);
@@ -328,15 +373,15 @@ export async function createReservation(input: {
       }
     }
 
-    if (status === "CONFIRMED") {
-      await holdRooms(input.roomIds, tx);
-    }
+    // Pré-reserva (PENDING) e confirmada (CONFIRMED) prendem o UH no quadro.
+    await holdRooms(input.roomIds, tx);
 
     return tx.reservation.create({
       data: {
         hotelId: input.hotelId,
         code: reservationCode(),
         guestId: input.guestId,
+        catalogUserId: input.catalogUserId ?? null,
         roomTypeId: primaryRoom.room.type.id,
         roomId: primaryRoom.room.id,
         checkInDate: checkIn,
@@ -492,7 +537,7 @@ export async function cancelReservation(hotelId: string, reservationId: string) 
     });
   });
 
-  return presentReservation(updated);
+  return withCancellationMessage(presentReservation(updated));
 }
 
 export async function checkInReservation(
@@ -956,10 +1001,12 @@ export async function updateReservation(
     );
   const primary = options[0]!;
   const previousIds = currentRoomIds;
-  const wasConfirmed = reservation.status === "CONFIRMED";
+  const isActive = ACTIVE_STATUSES.includes(
+    reservation.status as (typeof ACTIVE_STATUSES)[number],
+  );
 
   const updated = await prisma.$transaction(async (tx) => {
-    if (wasConfirmed) {
+    if (isActive) {
       const released = previousIds.filter((id) => !roomIds.includes(id));
       if (released.length > 0) {
         await releaseRooms(hotelId, released, reservationId, tx);
@@ -1005,6 +1052,15 @@ export async function deleteReservation(hotelId: string, reservationId: string) 
   }
 
   await prisma.$transaction(async (tx) => {
+    const roomIds = reservationRoomIds(reservation);
+    if (
+      roomIds.length > 0 &&
+      ACTIVE_STATUSES.includes(
+        reservation.status as (typeof ACTIVE_STATUSES)[number],
+      )
+    ) {
+      await releaseRooms(hotelId, roomIds, reservationId, tx);
+    }
     await tx.reservation.delete({ where: { id: reservationId } });
   });
 }

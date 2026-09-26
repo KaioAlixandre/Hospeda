@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { hotelIdFrom } from "../middleware/auth.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { notifyZeladoresRoomCleaning } from "../services/messaging.js";
+import { reconcileHotelRoomsBoard } from "../services/reservations.js";
 import { createRoomSchema, updateRoomSchema } from "../validators/schemas.js";
 
 export const roomsRouter = Router();
@@ -33,6 +34,8 @@ roomsRouter.get("/", async (req, res, next) => {
   try {
     const hotelId = hotelIdFrom(req);
     const { status, roomTypeId } = req.query;
+    // Alinha o quadro com pré-reservas / confirmadas / hospedadas ativas.
+    await reconcileHotelRoomsBoard(hotelId);
     const rooms = await prisma.room.findMany({
       where: {
         hotelId,

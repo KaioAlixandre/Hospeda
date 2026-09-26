@@ -215,6 +215,27 @@ function buildConfirmationMessage(
   ].join("\n");
 }
 
+function buildCancellationMessage(
+  stay: ConfirmedStay,
+  hotelName: string,
+): string {
+  const stayLine = stay.room
+    ? `🛏️ Quarto ${stay.room.number} — ${stay.roomType.name}`
+    : `Acomodação: ${stay.roomType.name}`;
+
+  return [
+    `Olá, ${stay.guest.name}! 👋`,
+    "",
+    `Sua reserva ${stay.code} foi cancelada.`,
+    "",
+    stayLine,
+    `📅 Período: ${stay.periodLabel}`,
+    "",
+    `Se precisar de algo ou quiser remarcar, responda esta mensagem.`,
+    `— ${hotelName}`,
+  ].join("\n");
+}
+
 function buildCleaningMessage(
   zeladorName: string,
   rooms: CleaningRoom[],
@@ -320,6 +341,48 @@ export async function notifyReservationConfirmed(
     phone,
     buildConfirmationMessage(stay, { name: hotelName, address }),
     `reservation ${stay.code}`,
+    stay.hotelId,
+  );
+}
+
+export async function notifyReservationCancelled(
+  stay: ConfirmedStay,
+): Promise<MessageNotification> {
+  const hotel = await prisma.hotel.findUnique({ where: { id: stay.hotelId } });
+  if (
+    hotel &&
+    !hasFeature(
+      {
+        plan: hotel.plan,
+        planStatus: hotel.planStatus,
+        planPaidUntil: hotel.planPaidUntil,
+      },
+      "messaging",
+    )
+  ) {
+    return {
+      sent: false,
+      skipped: "plan",
+      reason: "plan",
+      message: "Envio de mensagens disponível no plano Pro",
+    };
+  }
+
+  const phone = toWhatsAppPhone(stay.guest.phone);
+  if (!phone) {
+    return {
+      sent: false,
+      skipped: "no_phone",
+      reason: "Guest has no phone number",
+    };
+  }
+
+  const hotelName = hotel?.name ?? propertyName();
+
+  return sendTextMessage(
+    phone,
+    buildCancellationMessage(stay, hotelName),
+    `reservation cancelled ${stay.code}`,
     stay.hotelId,
   );
 }

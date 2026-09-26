@@ -3913,6 +3913,71 @@ select:focus {
   background: #fff;
 }
 
+.catalog-cover-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.catalog-cover-preview {
+  width: 220px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.catalog-cover-preview.empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.catalog-cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-cover-actions label.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.catalog-times-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.catalog-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-time-toggle {
+  align-items: center;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.catalog-time-toggle input[type="checkbox"] {
+  margin-top: 0;
+}
+
+.catalog-time-field input[type="time"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .settings-field textarea {
   width: 100%;
   border: 1px solid var(--border);

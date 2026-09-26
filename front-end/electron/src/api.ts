@@ -190,7 +190,10 @@ function query(params: Record<string, string | number | undefined>): string {
 
 export const api = {
   uploads: {
-    images: (files: File[], folder: "hotel-rooms" | "hotel-room-types" | "hotel-logos") => {
+    images: (
+      files: File[],
+      folder: "hotel-rooms" | "hotel-room-types" | "hotel-logos" | "hotel-covers",
+    ) => {
       const formData = new FormData();
       for (const file of files) formData.append("images", file);
       return uploadFormData<{ urls: string[] }>(
@@ -478,14 +481,12 @@ export const api = {
       catalogEnabled?: boolean;
       catalogHeadline?: string | null;
       catalogRules?: string | null;
-    }) =>
-      patch<{
-        catalogEnabled: boolean;
-        slug: string | null;
-        publicUrl: string | null;
-        headline: string | null;
-        rules: string | null;
-      }>("/catalog", body),
+      coverPhotoUrl?: string | null;
+      galleryPhotos?: string[];
+      checkInTime?: string | null;
+      checkOutTime?: string | null;
+      brandColor?: string | null;
+    }) => patch<CatalogSettings>("/catalog", body),
   },
 
   billing: {
@@ -506,6 +507,11 @@ export type CatalogSettings = {
   publicUrl: string | null;
   headline: string | null;
   rules: string | null;
+  coverPhotoUrl: string | null;
+  galleryPhotos: string[];
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  brandColor: string | null;
   roomTypesWithoutPhotos: Array<{ id: string; name: string }>;
   canEnable: boolean;
 };

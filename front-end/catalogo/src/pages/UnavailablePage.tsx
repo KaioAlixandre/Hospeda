@@ -1,15 +1,11 @@
-import { useParams } from "react-router-dom";
-import { StayDesckFooter, LoadingBlock } from "../components/HotelBrand";
-import { useHotel } from "../hooks/useHotel";
-import { phoneHref, whatsappHref } from "../lib/format";
+import { Link, useParams } from "react-router-dom";
+import { StayDesckFooter } from "../components/HotelBrand";
+import { useHotelContext } from "../hooks/HotelContext";
+import { ErrorBanner, LoadingBlock } from "../components/HotelBrand";
 
-type Props = {
-  generic?: boolean;
-};
-
-export function UnavailablePage({ generic }: Props) {
+export function UnavailablePage({ generic }: { generic?: boolean }) {
   const { slug } = useParams();
-  const hotelState = useHotel(generic ? undefined : slug);
+  const hotelState = useHotelContext();
 
   if (!generic && hotelState.status === "loading") {
     return (
@@ -19,33 +15,25 @@ export function UnavailablePage({ generic }: Props) {
     );
   }
 
-  const hotel = hotelState.status === "ready" ? hotelState.hotel : null;
-
   return (
-    <main className="page page-centered unavailable-page">
+    <main className="page page-centered">
       <div className="unavailable-card">
-        <h1>Catálogo indisponível</h1>
+        <h1>Página indisponível</h1>
         <p className="muted">
-          {hotel
-            ? "Este link não está disponível no momento. Fale com o hotel para reservar."
-            : "Não encontramos este catálogo. Confira o link ou fale com o estabelecimento."}
+          {generic
+            ? "Este endereço não existe."
+            : hotelState.error ||
+              "O catálogo deste hotel não está disponível no momento."}
         </p>
-        {hotel?.phone ? (
-          <div className="ready-contact">
-            <a className="btn btn-secondary btn-block" href={phoneHref(hotel.phone)}>
-              Ligar {hotel.phone}
-            </a>
-            <a
-              className="btn btn-primary btn-block"
-              href={whatsappHref(hotel.phone)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              WhatsApp do hotel
-            </a>
-          </div>
+        {slug ? (
+          <Link className="btn btn-primary" to={`/h/${slug}`}>
+            Ir para o início
+          </Link>
         ) : null}
       </div>
+      {!generic && hotelState.status === "error" ? (
+        <ErrorBanner message={hotelState.error} />
+      ) : null}
       <StayDesckFooter />
     </main>
   );

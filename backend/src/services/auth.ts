@@ -145,9 +145,13 @@ function signToken(hotelId: string): string {
 
 export function verifyToken(token: string): TokenPayload {
   try {
-    const payload = jwt.verify(token, requireJwtSecret()) as TokenPayload;
-    if (!payload.hotelId) throw new Error("Invalid token payload");
-    return payload;
+    const payload = jwt.verify(token, requireJwtSecret()) as TokenPayload & {
+      typ?: string;
+    };
+    if (payload.typ === "catalog" || !payload.hotelId) {
+      throw new Error("Invalid token payload");
+    }
+    return { hotelId: payload.hotelId };
   } catch {
     throw new AppError(401, "Invalid or expired token");
   }

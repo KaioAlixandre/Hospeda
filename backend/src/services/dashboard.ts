@@ -5,6 +5,7 @@ import {
   addUtcDays,
 } from "../lib/datetime.js";
 import { prisma } from "../lib/prisma.js";
+import { reconcileHotelRoomsBoard } from "./reservations.js";
 import { getTopProducts } from "./topProducts.js";
 
 function formatBRL(value: number): string {
@@ -31,6 +32,8 @@ export async function getAdminDashboard(hotelId: string, dateIso?: string) {
 
   // Para colunas de data/hora: a janela absoluta do dia no fuso do hotel.
   const { start: dayStart, end: dayEnd } = hotelDayRange(dayLabel);
+
+  await reconcileHotelRoomsBoard(hotelId);
 
   // Poucas queries em paralelo para não esgotar o pool
   const [

@@ -116,6 +116,15 @@ model Hotel {
   /// Texto de boas-vindas e regras que aparecem no site
   catalogHeadline String?  @db.Text
   catalogRules    String?  @db.Text
+  /// Foto de capa do catálogo público
+  coverPhotoUrl   String?
+  /// Galeria extra da capa (URLs)
+  galleryPhotos   Json?
+  /// Horários exibidos no catálogo (ex.: "14:00")
+  checkInTime     String?
+  checkOutTime    String?
+  /// Cor de destaque do catálogo (#RRGGBB)
+  brandColor      String?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -130,6 +139,23 @@ model Hotel {
   products          Product[]
 
   @@index([name])
+}
+
+/// Conta do hóspede no catálogo público (login / Google)
+model CatalogUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String?
+  googleId     String?  @unique
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@index([phone])
 }
 
 /// Histórico de mudança de plano
@@ -237,6 +263,8 @@ model Reservation {
   hotelId      String
   code         String            @unique
   guestId      String
+  /// Conta do catálogo que fez o pedido online (null = balcão / legado)
+  catalogUserId String?
   roomTypeId   String
   roomId       String?
   checkInDate  DateTime          @db.Date
@@ -256,15 +284,17 @@ model Reservation {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
-  hotel    Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  guest    Guest         @relation(fields: [guestId], references: [id])
-  roomType RoomType      @relation(fields: [roomTypeId], references: [id])
-  room     Room?         @relation(fields: [roomId], references: [id])
-  charges  FolioCharge[]
-  payments Payment[]
+  hotel       Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guest       Guest         @relation(fields: [guestId], references: [id])
+  catalogUser CatalogUser?  @relation(fields: [catalogUserId], references: [id], onDelete: SetNull)
+  roomType    RoomType      @relation(fields: [roomTypeId], references: [id])
+  room        Room?         @relation(fields: [roomId], references: [id])
+  charges     FolioCharge[]
+  payments    Payment[]
 
   @@index([hotelId])
   @@index([guestId])
+  @@index([catalogUserId])
   @@index([roomTypeId])
   @@index([roomId])
   @@index([status])

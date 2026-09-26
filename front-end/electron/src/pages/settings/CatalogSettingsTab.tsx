@@ -3,8 +3,10 @@ import {
   Check,
   Copy,
   Globe,
+  ImagePlus,
   MessageCircle,
   Save,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, type CatalogSettings } from "../../api";
@@ -101,8 +103,15 @@ function CatalogConnectedSettings() {
   const [catalogEnabled, setCatalogEnabled] = useState(false);
   const [headline, setHeadline] = useState("");
   const [rules, setRules] = useState("");
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
+  const [showCheckInTime, setShowCheckInTime] = useState(false);
+  const [showCheckOutTime, setShowCheckOutTime] = useState(false);
+  const [checkInTime, setCheckInTime] = useState("14:00");
+  const [checkOutTime, setCheckOutTime] = useState("11:00");
+  const [brandColor, setBrandColor] = useState("#0B6E4F");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,6 +124,12 @@ function CatalogConnectedSettings() {
       setCatalogEnabled(catalog.catalogEnabled);
       setHeadline(catalog.headline ?? "");
       setRules(catalog.rules ?? "");
+      setCoverPhotoUrl(catalog.coverPhotoUrl);
+      setShowCheckInTime(Boolean(catalog.checkInTime));
+      setShowCheckOutTime(Boolean(catalog.checkOutTime));
+      setCheckInTime(catalog.checkInTime ?? "14:00");
+      setCheckOutTime(catalog.checkOutTime ?? "11:00");
+      setBrandColor(catalog.brandColor ?? "#0B6E4F");
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -138,6 +153,21 @@ function CatalogConnectedSettings() {
     }
   }
 
+  async function onCoverPick(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const { urls } = await api.uploads.images([files[0]!], "hotel-covers");
+      setCoverPhotoUrl(urls[0] ?? null);
+      setMessage("Foto de capa enviada. Salve para publicar.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -148,22 +178,21 @@ function CatalogConnectedSettings() {
         catalogEnabled,
         catalogHeadline: headline.trim() || null,
         catalogRules: rules.trim() || null,
+        coverPhotoUrl,
+        checkInTime: showCheckInTime ? checkInTime.trim() || null : null,
+        checkOutTime: showCheckOutTime ? checkOutTime.trim() || null : null,
+        brandColor: brandColor.trim() || null,
       });
-      setData((prev) =>
-        prev
-          ? {
-              ...prev,
-              catalogEnabled: updated.catalogEnabled,
-              slug: updated.slug,
-              publicUrl: updated.publicUrl,
-              headline: updated.headline,
-              rules: updated.rules,
-            }
-          : prev,
-      );
+      setData(updated);
       setCatalogEnabled(updated.catalogEnabled);
       setHeadline(updated.headline ?? "");
       setRules(updated.rules ?? "");
+      setCoverPhotoUrl(updated.coverPhotoUrl);
+      setShowCheckInTime(Boolean(updated.checkInTime));
+      setShowCheckOutTime(Boolean(updated.checkOutTime));
+      setCheckInTime((updated.checkInTime ?? checkInTime) || "14:00");
+      setCheckOutTime((updated.checkOutTime ?? checkOutTime) || "11:00");
+      setBrandColor(updated.brandColor ?? "#0B6E4F");
       setMessage("Catálogo atualizado.");
     } catch (err) {
       setError((err as Error).message);
@@ -193,8 +222,8 @@ function CatalogConnectedSettings() {
         Catálogo online
       </h3>
       <p className="muted settings-panel-lead">
-        Ative a página pública, personalize o texto e compartilhe o link ou QR
-        Code com seus hóspedes.
+        Ative a página pública, personalize capa e textos, e compartilhe o link
+        ou QR Code com seus hóspedes.
       </p>
 
       <Feedback error={error} message={message} />
@@ -257,6 +286,92 @@ function CatalogConnectedSettings() {
         )}
 
         <label className="settings-field">
+          <span>Foto de capa</span>
+          <div className="catalog-cover-row">
+            {coverPhotoUrl ? (
+              <img
+                className="catalog-cover-preview"
+                src={coverPhotoUrl}
+                alt="Capa do catálogo"
+              />
+            ) : (
+              <div className="catalog-cover-preview empty">Sem capa</div>
+            )}
+            <div className="catalog-cover-actions">
+              <label className="btn">
+                <ImagePlus size={15} />
+                {uploading ? "Enviando…" : "Enviar foto"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={uploading || busy}
+                  onChange={(e) => {
+                    void onCoverPick(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {coverPhotoUrl ? (
+                <Button
+                  type="button"
+                  icon={<Trash2 size={15} />}
+                  onClick={() => setCoverPhotoUrl(null)}
+                >
+                  Remover
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <small className="muted">
+            Imagem larga (paisagem). Sem capa, o site usa a cor do catálogo.
+          </small>
+        </label>
+
+        <div className="form-grid catalog-times-grid">
+          <div className="settings-field catalog-time-field">
+            <label className="catalog-toggle-row catalog-time-toggle">
+              <input
+                type="checkbox"
+                checked={showCheckInTime}
+                onChange={(e) => setShowCheckInTime(e.target.checked)}
+              />
+              <span>Exibir check-in a partir de</span>
+            </label>
+            <input
+              type="time"
+              value={checkInTime}
+              disabled={!showCheckInTime}
+              onChange={(e) => setCheckInTime(e.target.value)}
+            />
+          </div>
+          <div className="settings-field catalog-time-field">
+            <label className="catalog-toggle-row catalog-time-toggle">
+              <input
+                type="checkbox"
+                checked={showCheckOutTime}
+                onChange={(e) => setShowCheckOutTime(e.target.checked)}
+              />
+              <span>Exibir check-out até</span>
+            </label>
+            <input
+              type="time"
+              value={checkOutTime}
+              disabled={!showCheckOutTime}
+              onChange={(e) => setCheckOutTime(e.target.value)}
+            />
+          </div>
+          <label className="settings-field">
+            <span>Cor do catálogo</span>
+            <input
+              type="color"
+              value={brandColor}
+              onChange={(e) => setBrandColor(e.target.value.toUpperCase())}
+            />
+          </label>
+        </div>
+
+        <label className="settings-field">
           <span>Headline da capa</span>
           <textarea
             rows={3}
@@ -274,7 +389,7 @@ function CatalogConnectedSettings() {
             value={rules}
             onChange={(e) => setRules(e.target.value)}
             maxLength={5000}
-            placeholder="Check-in a partir das 14h, pets sob consulta…"
+            placeholder="Uma regra por linha…"
           />
         </label>
 

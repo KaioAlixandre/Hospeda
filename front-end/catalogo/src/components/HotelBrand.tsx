@@ -1,5 +1,6 @@
 import type { PublicHotel } from "../api";
 import { locationLabel } from "../lib/format";
+import { cloudinaryUrl } from "../lib/images";
 
 type Props = {
   hotel: PublicHotel;
@@ -8,15 +9,12 @@ type Props = {
 
 export function HotelBrand({ hotel, compact }: Props) {
   const place = locationLabel(hotel.city, hotel.state);
+  const logo = cloudinaryUrl(hotel.logoUrl, { w: 200 });
 
   return (
     <header className={`hotel-brand ${compact ? "compact" : ""}`}>
-      {hotel.logoUrl ? (
-        <img
-          className="hotel-logo"
-          src={hotel.logoUrl}
-          alt={`Logo ${hotel.name}`}
-        />
+      {logo ? (
+        <img className="hotel-logo" src={logo} alt={`Logo ${hotel.name}`} />
       ) : (
         <div className="hotel-logo hotel-logo-fallback" aria-hidden>
           {hotel.name.slice(0, 1).toUpperCase()}

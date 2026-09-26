@@ -10,6 +10,7 @@ const ALLOWED_FOLDERS = new Set([
   "hotel-rooms",
   "hotel-room-types",
   "hotel-logos",
+  "hotel-covers",
 ]);
 
 const upload = multer({

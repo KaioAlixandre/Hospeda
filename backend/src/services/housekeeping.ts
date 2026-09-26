@@ -2,6 +2,10 @@ import { presentHousekeepingBoard, presentHousekeepingRoom } from "../lib/presen
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { notifyZeladoresRoomCleaning } from "./messaging.js";
+import {
+  reconcileHotelRoomsBoard,
+  syncRoomsBoardStatus,
+} from "./reservations.js";
 
 type RoomStatus =
   | "AVAILABLE"
@@ -14,6 +18,7 @@ export async function getHousekeepingBoard(
   hotelId: string,
   filter?: { status?: RoomStatus },
 ) {
+  await reconcileHotelRoomsBoard(hotelId);
   const rooms = await prisma.room.findMany({
     where: {
       hotelId,
@@ -35,26 +40,34 @@ async function loadRoom(hotelId: string, roomId: string) {
   return room;
 }
 
-/** Limpeza concluída: Limpeza → Disponível */
+/** Limpeza concluída: Limpeza → Disponível (ou Reservado se houver pré-reserva/confirmação). */
 export async function markRoomCleaned(hotelId: string, roomId: string) {
   const room = await loadRoom(hotelId, roomId);
   if (room.status !== "CLEANING") {
     throw new AppError(400, "Only rooms in cleaning status can be marked as ready");
   }
 
-  const updated = await prisma.room.update({
+  await prisma.room.update({
     where: { id: roomId },
     data: { status: "AVAILABLE" },
-    include: { roomType: true },
   });
+  await syncRoomsBoardStatus(hotelId, [roomId]);
+
+  const updated = await loadRoom(hotelId, roomId);
+  const toLabel =
+    updated.status === "RESERVED"
+      ? "Reservado"
+      : updated.status === "OCCUPIED"
+        ? "Ocupado"
+        : "Disponível";
 
   return {
     ...presentHousekeepingRoom(updated),
     statusChange: {
       from: "CLEANING",
-      to: "AVAILABLE",
+      to: updated.status,
       fromLabel: "Limpeza",
-      toLabel: "Disponível",
+      toLabel,
     },
   };
 }
@@ -119,26 +132,34 @@ export async function setRoomMaintenance(hotelId: string, roomId: string) {
   };
 }
 
-/** Liberar manutenção → Disponível */
+/** Liberar manutenção → Disponível (ou Reservado se houver pré-reserva/confirmação). */
 export async function releaseRoomMaintenance(hotelId: string, roomId: string) {
   const room = await loadRoom(hotelId, roomId);
   if (room.status !== "MAINTENANCE") {
     throw new AppError(400, "Room is not in maintenance");
   }
 
-  const updated = await prisma.room.update({
+  await prisma.room.update({
     where: { id: roomId },
     data: { status: "AVAILABLE" },
-    include: { roomType: true },
   });
+  await syncRoomsBoardStatus(hotelId, [roomId]);
+
+  const updated = await loadRoom(hotelId, roomId);
+  const toLabel =
+    updated.status === "RESERVED"
+      ? "Reservado"
+      : updated.status === "OCCUPIED"
+        ? "Ocupado"
+        : "Disponível";
 
   return {
     ...presentHousekeepingRoom(updated),
     statusChange: {
       from: "MAINTENANCE",
-      to: "AVAILABLE",
+      to: updated.status,
       fromLabel: "Manutenção",
-      toLabel: "Disponível",
+      toLabel,
     },
   };
 }
